@@ -6,7 +6,6 @@ const items = [
   { to: '/', label: 'Home', icon: HomeIcon, end: true },
   { to: '/stats', label: 'Stats', icon: StatsIcon },
   { to: '/h2h', label: 'H2H', icon: H2HIcon },
-  { to: '/wheel', label: 'Wheel', icon: WheelIcon },
   { to: '/rules', label: 'Rules', icon: RulesIcon },
 ];
 
@@ -57,18 +56,6 @@ function H2HIcon() {
       <circle cx="8" cy="9" r="3.5" />
       <circle cx="16" cy="9" r="3.5" />
       <path d="M4 20c.8-3 3.5-5 8-5s7.2 2 8 5" />
-    </svg>
-  );
-}
-
-function WheelIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <line x1="12" y1="3" x2="12" y2="21" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="5.5" y1="5.5" x2="18.5" y2="18.5" />
-      <line x1="18.5" y1="5.5" x2="5.5" y2="18.5" />
     </svg>
   );
 }
