@@ -53,7 +53,6 @@ export default function Home() {
 
       <div className="card-grid">
         <FeatureLink to="/stats" title="Last season stats" body="Standings, blowouts, bench points and more." />
-        <FeatureLink to="/wheel" title="Keeper wheel" body="Going decide keepers with a weighted random spin." />
         <FeatureLink to="/rules" title="Rule suggestions" body="Suggest a rule and vote on what should change next season." />
       </div>
     </div>
