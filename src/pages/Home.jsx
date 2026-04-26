@@ -36,9 +36,6 @@ export default function Home() {
       <header className="page-header">
         <span className="eyebrow">Fantasy Dashboard</span>
         <h1>{state.league?.name || 'Your league'}</h1>
-        <p className="muted">
-          Recap last season, spin a wheel for keepers, and vote on next year's rules.
-        </p>
       </header>
 
       {state.status === 'no-config' && <NoConfig />}
@@ -55,8 +52,8 @@ export default function Home() {
       )}
 
       <div className="card-grid">
-        <FeatureLink to="/stats" title="Last season stats" body="Standings, blowouts, bench points, optimal lineups, and more." />
-        <FeatureLink to="/wheel" title="Spin the wheel" body="Decide keepers (or anything) with a weighted random spin." />
+        <FeatureLink to="/stats" title="Last season stats" body="Standings, blowouts, bench points and more." />
+        <FeatureLink to="/wheel" title="Keeper wheel" body="Going decide keepers with a weighted random spin." />
         <FeatureLink to="/rules" title="Rule suggestions" body="Suggest a rule and vote on what should change next season." />
       </div>
     </div>

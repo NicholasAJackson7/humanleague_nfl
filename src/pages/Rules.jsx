@@ -131,7 +131,7 @@ export default function Rules() {
         <span className="eyebrow">Vote on next season</span>
         <h1>Rule suggestions</h1>
         <p className="muted">
-          Suggest a rule and vote on what should change. One vote per rule per browser.
+          Suggest a rule and vote on what should change.
         </p>
       </header>
 
