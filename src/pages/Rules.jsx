@@ -1,19 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import RuleCard from '../components/RuleCard.jsx';
 import BottomSheet from '../components/BottomSheet.jsx';
+import RuleDiscussionSheet from '../components/RuleDiscussionSheet.jsx';
 import { getVoterToken, loadMyVotes, saveMyVote } from '../lib/voter.js';
 
 export default function Rules() {
   const [rules, setRules] = useState(null);
   const [error, setError] = useState(null);
   const [showSheet, setShowSheet] = useState(false);
+  const [discussionRule, setDiscussionRule] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [busyRule, setBusyRule] = useState(null);
   const [myVotes, setMyVotes] = useState(loadMyVotes);
 
   async function load() {
     try {
-      const res = await fetch('/api/rules');
+      const res = await fetch('/api/rules', { credentials: 'include' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error || `Failed (${res.status})`);
@@ -35,6 +37,7 @@ export default function Rules() {
       const res = await fetch('/api/rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ title, description, author }),
       });
       const data = await res.json().catch(() => ({}));
@@ -81,11 +84,13 @@ export default function Rules() {
           ? await fetch('/api/votes', {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
               body: JSON.stringify({ rule_id: ruleId, voter_token: voterToken }),
             })
           : await fetch('/api/votes', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
               body: JSON.stringify({
                 rule_id: ruleId,
                 voter_token: voterToken,
@@ -116,6 +121,12 @@ export default function Rules() {
       setBusyRule(null);
     }
   }
+
+  const syncPostCount = useCallback((ruleId, count) => {
+    setRules((list) =>
+      list ? list.map((r) => (r.id === ruleId ? { ...r, post_count: count } : r)) : list
+    );
+  }, []);
 
   const sorted = rules
     ? [...rules].sort(
@@ -175,6 +186,8 @@ export default function Rules() {
               myVote={myVotes[rule.id] || 0}
               busy={busyRule === rule.id}
               onVote={vote}
+              postCount={rule.post_count ?? 0}
+              onDiscuss={setDiscussionRule}
             />
           ))}
         </div>
@@ -187,6 +200,15 @@ export default function Rules() {
       >
         <SuggestForm onSubmit={submitRule} submitting={submitting} />
       </BottomSheet>
+
+      {discussionRule ? (
+        <RuleDiscussionSheet
+          key={discussionRule.id}
+          rule={discussionRule}
+          onClose={() => setDiscussionRule(null)}
+          onPostCount={syncPostCount}
+        />
+      ) : null}
     </div>
   );
 }

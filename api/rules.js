@@ -1,11 +1,35 @@
 import { getSql, rateLimit, clientIp, readJsonBody, send } from './_db.js';
+import { assertSiteAuth } from './_auth.js';
+import { isUndefinedRelation } from './_pgErrors.js';
 
 export default async function handler(req, res) {
   try {
+    if (!assertSiteAuth(req, res, send)) return;
+
     const sql = getSql();
 
     if (req.method === 'GET') {
-      const rows = await sql`
+      const queryWithPosts = () => sql`
+        select
+          r.id,
+          r.title,
+          r.description,
+          r.author,
+          r.created_at,
+          coalesce(sum(case when v.value = 1 then 1 else 0 end), 0)::int  as up,
+          coalesce(sum(case when v.value = -1 then 1 else 0 end), 0)::int as down,
+          coalesce(sum(v.value), 0)::int                                  as score,
+          coalesce(
+            (select count(*)::int from rule_posts p where p.rule_id = r.id),
+            0
+          ) as post_count
+        from rules r
+        left join votes v on v.rule_id = r.id
+        group by r.id
+        order by score desc, r.created_at desc
+      `;
+
+      const queryLegacy = () => sql`
         select
           r.id,
           r.title,
@@ -20,6 +44,17 @@ export default async function handler(req, res) {
         group by r.id
         order by score desc, r.created_at desc
       `;
+
+      let rows;
+      try {
+        rows = await queryWithPosts();
+      } catch (e) {
+        if (isUndefinedRelation(e, 'rule_posts')) {
+          rows = (await queryLegacy()).map((r) => ({ ...r, post_count: 0 }));
+        } else {
+          throw e;
+        }
+      }
       return send(res, 200, { rules: rows });
     }
 
@@ -51,7 +86,7 @@ export default async function handler(req, res) {
         returning id, title, description, author, created_at
       `;
       return send(res, 201, {
-        rule: { ...rule, up: 0, down: 0, score: 0 },
+        rule: { ...rule, up: 0, down: 0, score: 0, post_count: 0 },
       });
     }
 

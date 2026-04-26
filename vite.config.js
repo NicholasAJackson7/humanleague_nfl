@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { devAuthApiPlugin } from './vite.dev-auth-api.js';
 
 /**
  * Plain `npm run dev` does not run Vercel serverless functions. Without this,
@@ -13,6 +14,9 @@ function apiNotOnViteOnly() {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const path = (req.url || '').split('?')[0];
+        if (path.startsWith('/api/auth/')) {
+          return next();
+        }
         if (path.startsWith('/api/')) {
           res.statusCode = 503;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -30,9 +34,11 @@ function apiNotOnViteOnly() {
   };
 }
 
-export default defineConfig({
-  plugins: [apiNotOnViteOnly(), react()],
-  server: {
-    port: 5173,
-  },
+export default defineConfig(({ mode }) => {
+  return {
+    plugins: [devAuthApiPlugin(mode), apiNotOnViteOnly(), react()],
+    server: {
+      port: 5173,
+    },
+  };
 });

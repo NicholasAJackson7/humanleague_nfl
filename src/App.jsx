@@ -1,12 +1,16 @@
 import React, { Suspense, lazy } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import Nav from './components/Nav.jsx';
+import { AuthProvider, useAuth } from './AuthContext.jsx';
 
 const Home = lazy(() => import('./pages/Home.jsx'));
 const Stats = lazy(() => import('./pages/Stats.jsx'));
 const Wheel = lazy(() => import('./pages/Wheel.jsx'));
 const Rules = lazy(() => import('./pages/Rules.jsx'));
 const HeadToHead = lazy(() => import('./pages/HeadToHead.jsx'));
+const Drafts = lazy(() => import('./pages/Drafts.jsx'));
+const Keepers = lazy(() => import('./pages/Keepers.jsx'));
+const Login = lazy(() => import('./pages/Login.jsx'));
 
 function PageFallback() {
   return (
@@ -22,22 +26,57 @@ function PageFallback() {
   );
 }
 
-export default function App() {
+function RequireAuth() {
+  const { ready, authenticated, authEnabled } = useAuth();
+  const location = useLocation();
+
+  if (!ready) {
+    return <PageFallback />;
+  }
+  if (authEnabled && !authenticated) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+  return <Outlet />;
+}
+
+function AppLayout() {
   return (
     <>
       <Nav />
       <main className="app-shell">
         <Suspense fallback={<PageFallback />}>
-          <Routes>
+          <Outlet />
+        </Suspense>
+      </main>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <Login />
+            </Suspense>
+          }
+        />
+        <Route element={<AppLayout />}>
+          <Route element={<RequireAuth />}>
             <Route path="/" element={<Home />} />
             <Route path="/stats" element={<Stats />} />
             <Route path="/wheel" element={<Wheel />} />
             <Route path="/rules" element={<Rules />} />
             <Route path="/h2h" element={<HeadToHead />} />
+            <Route path="/drafts" element={<Drafts />} />
+            <Route path="/keepers" element={<Keepers />} />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
-      </main>
-    </>
+          </Route>
+        </Route>
+      </Routes>
+    </AuthProvider>
   );
 }

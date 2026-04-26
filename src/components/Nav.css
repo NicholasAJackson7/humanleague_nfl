@@ -11,11 +11,15 @@
 
 .bottom-nav ul {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   list-style: none;
   margin: 0;
   padding: 4px max(var(--space-2), var(--safe-left)) 4px max(var(--space-2), var(--safe-right));
   gap: 2px;
+}
+
+.bottom-nav.bottom-nav--auth ul {
+  grid-template-columns: repeat(7, 1fr);
 }
 
 .bottom-nav .tab {
@@ -39,6 +43,18 @@
 .bottom-nav .tab.active svg { opacity: 1; }
 .bottom-nav .tab:active { background: rgba(56, 189, 248, 0.14); }
 
+.bottom-nav .tab-logout {
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-text-dim);
+}
+
+.bottom-nav .tab-logout:hover {
+  color: var(--color-text);
+}
+
 @media (min-width: 768px) {
   .bottom-nav {
     position: sticky;
@@ -49,10 +65,14 @@
   .bottom-nav ul {
     max-width: 1100px;
     margin: 0 auto;
-    grid-template-columns: repeat(4, max-content);
+    grid-template-columns: repeat(6, max-content);
     justify-content: flex-start;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-4);
+  }
+
+  .bottom-nav.bottom-nav--auth ul {
+    grid-template-columns: repeat(7, max-content);
   }
   .bottom-nav .tab {
     flex-direction: row;
