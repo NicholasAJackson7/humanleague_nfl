@@ -1,4 +1,4 @@
-# Fantasy Dashboard
+# Fantasy Dashboards
 
 A mobile-first Vite + React app for a Sleeper fantasy football league.
 
