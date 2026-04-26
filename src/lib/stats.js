@@ -253,38 +253,127 @@ function computePlayoffRosterTotalsFromWeekly(playoffWeekly, teamsByRoster) {
   };
 }
 
-function summarizeWinnersBracket(bracket, teamsByRoster) {
+function bracketRowHasLoserPath(row) {
+  const t1f = row.t1_from;
+  const t2f = row.t2_from;
+  return Boolean(
+    (t1f && Object.prototype.hasOwnProperty.call(t1f, 'l')) ||
+      (t2f && Object.prototype.hasOwnProperty.call(t2f, 'l'))
+  );
+}
+
+/** Sleeper publishes the real champion on the league object when the season is complete. */
+function championRosterIdFromLeague(league) {
+  const raw = league?.metadata?.latest_league_winner_roster_id;
+  if (raw == null || raw === '' || String(raw) === '0') return null;
+  const id = Number(raw);
+  return Number.isFinite(id) ? id : null;
+}
+
+/**
+ * When metadata is missing, infer champion from bracket: prefer slot `p === 1`,
+ * else the deepest winners-only round (no t*_from.l feeder).
+ */
+function championRosterIdFromBracket(bracket) {
+  if (!Array.isArray(bracket) || bracket.length === 0) return null;
+
+  const finished = bracket.filter((row) => {
+    const w = Number(row.w);
+    const t1 = Number(row.t1);
+    const t2 = Number(row.t2);
+    return Number.isFinite(w) && Number.isFinite(t1) && Number.isFinite(t2) && t1 !== t2;
+  });
+  if (!finished.length) return null;
+
+  const primary = finished.find(
+    (row) => Number(row.p) === 1 && Number.isFinite(Number(row.w))
+  );
+  if (primary) return Number(primary.w);
+
+  const winnersOnly = finished.filter((row) => !bracketRowHasLoserPath(row));
+  const pool = winnersOnly.length ? winnersOnly : finished;
+  const maxR = Math.max(...pool.map((row) => Number(row.r) || 0));
+  const top = pool.filter((row) => (Number(row.r) || 0) === maxR);
+  top.sort((a, b) => Number(a.m || 0) - Number(b.m || 0));
+  return top.length ? Number(top[0].w) : null;
+}
+
+/** Champion roster id for a season (metadata first, then bracket). */
+export function getChampionRosterId(league, winnersBracket) {
+  return (
+    championRosterIdFromLeague(league) ??
+    championRosterIdFromBracket(winnersBracket)
+  );
+}
+
+/** Runner-up roster id from the championship slot (`p === 1`) when Sleeper sets `l`. */
+export function getFinalsLoserRosterId(winnersBracket) {
+  if (!Array.isArray(winnersBracket)) return null;
+  const row = winnersBracket.find((r) => Number(r.p) === 1);
+  if (!row) return null;
+  const l = Number(row.l);
+  return Number.isFinite(l) ? l : null;
+}
+
+function summarizeWinnersBracket(bracket, teamsByRoster, league) {
   if (!Array.isArray(bracket) || bracket.length === 0) {
-    return { championName: null, decisiveMatches: [] };
+    const fromMetaOnly = championRosterIdFromLeague(league);
+    return {
+      championName: fromMetaOnly
+        ? teamLabel(teamsByRoster, fromMetaOnly)
+        : null,
+      decisiveMatches: [],
+    };
   }
+
+  const championRosterId = getChampionRosterId(league, bracket);
+
   const decisive = [];
-  let championRosterId = null;
-  let maxRound = -Infinity;
   for (const row of bracket) {
     const w = row.w != null && row.w !== '' ? Number(row.w) : NaN;
     const t1 = row.t1 != null && row.t1 !== '' ? Number(row.t1) : NaN;
     const t2 = row.t2 != null && row.t2 !== '' ? Number(row.t2) : NaN;
     const r = Number(row.r);
+    const m = Number(row.m);
     if (
-      Number.isFinite(w) &&
-      Number.isFinite(t1) &&
-      Number.isFinite(t2) &&
-      t1 !== t2
+      !Number.isFinite(w) ||
+      !Number.isFinite(t1) ||
+      !Number.isFinite(t2) ||
+      t1 === t2
     ) {
-      const loserId = w === t1 ? t2 : t1;
-      const round = Number.isFinite(r) ? r : 0;
-      decisive.push({
-        round,
-        winner: teamLabel(teamsByRoster, w),
-        loser: teamLabel(teamsByRoster, loserId),
-      });
-      if (round >= maxRound) {
-        maxRound = round;
-        championRosterId = w;
-      }
+      continue;
     }
+    const lRaw = row.l;
+    const loserId = Number.isFinite(Number(lRaw))
+      ? Number(lRaw)
+      : w === t1
+        ? t2
+        : t1;
+    const round = Number.isFinite(r) ? r : 0;
+    const matchNum = Number.isFinite(m) ? m : 0;
+    const slotP = Number.isFinite(Number(row.p)) ? Number(row.p) : null;
+    const consolation = bracketRowHasLoserPath(row);
+    let slotLabel = '';
+    if (slotP === 1) slotLabel = 'Championship';
+    else if (consolation) slotLabel = 'Placement / consolation';
+    else if (slotP != null) slotLabel = `Bracket slot ${slotP}`;
+
+    decisive.push({
+      round,
+      match: matchNum,
+      slotP,
+      slotLabel,
+      consolation,
+      winner: teamLabel(teamsByRoster, w),
+      loser: teamLabel(teamsByRoster, loserId),
+    });
   }
-  decisive.sort((a, b) => a.round - b.round || a.winner.localeCompare(b.winner));
+  decisive.sort(
+    (a, b) =>
+      a.round - b.round ||
+      a.match - b.match ||
+      a.winner.localeCompare(b.winner)
+  );
   const championName =
     championRosterId != null
       ? teamLabel(teamsByRoster, championRosterId)
@@ -331,7 +420,7 @@ export function computeStats(bundle) {
     playoffWeekly,
     teamsByRoster
   );
-  const bracket = summarizeWinnersBracket(winnersBracket, teamsByRoster);
+  const bracket = summarizeWinnersBracket(winnersBracket, teamsByRoster, league);
   const hasPlayoffScores = playoffWeekly.some((w) => w.points > 0);
   const playoffWeeksTracked = [
     ...new Set(playoffWeekly.map((w) => w.week)),
