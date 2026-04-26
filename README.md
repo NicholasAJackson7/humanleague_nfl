@@ -5,7 +5,9 @@ A mobile-first Vite + React app for a Sleeper fantasy football league.
 - `/` — League standings snapshot
 - `/stats` — Previous-season recap (highs, lows, blowouts, bench points, consistency)
 - `/wheel` — Spin-the-wheel keeper picker (weighted, with history)
+- `/drafts` — **Draft board** per linked season: teams as columns, rounds as rows (Sleeper picks + `draft_order`)
 - `/rules` — Rule suggestions, voting, and **per-rule discussion** threads
+- `/keepers` — Manager keeper nominations (roster picks from a past season or freeform text; stored in Postgres for the commissioner). Optional `VITE_KEEPERS_REVEAL_AT` (ISO 8601) hides the **All nominations** table until that time; the API still returns data if called directly, so treat this as a league courtesy, not a secret lock.
 
 Hosted on Vercel. Voting state lives in Neon Postgres (free tier). Sleeper data is read from the public Sleeper API.
 
@@ -36,6 +38,7 @@ Edit `.env`:
 ```
 VITE_SLEEPER_LEAGUE_ID=your_league_id_here
 DATABASE_URL=postgres://...   # only needed if you want to test /api locally
+# Optional: VITE_KEEPERS_REVEAL_AT=2026-08-20T12:00:00-04:00
 ```
 
 ### 3. Run
@@ -52,7 +55,7 @@ Then visit http://localhost:5173.
 
 With `npm run dev`, Vite serves **`/api/auth/*` only** (so optional `SITE_PASSWORD` login works from `.env.local`). Other `/api/*` routes still return 503 until you run `npx vercel dev` (needed for Rules + Postgres).
 
-For **Rules + voting** (needs `DATABASE_URL` and `db/schema.sql` applied):
+For **Rules, keeper nominations, and voting** (needs `DATABASE_URL` and `db/schema.sql` applied):
 
 ```bash
 npx vercel dev
@@ -102,6 +105,7 @@ api/                Vercel serverless functions (Node 18, ESM)
   rules.js            GET, POST (includes `post_count` per rule)
   votes.js            POST, DELETE
   rule-posts.js       GET, POST, DELETE — forum messages under a rule
+  keeper-nominations.js  GET, POST — manager keeper slots (roster or freeform)
 db/
   schema.sql          one-time database setup
 public/
@@ -112,10 +116,11 @@ src/
   App.jsx             routing + lazy-loaded pages
   config.js           reads VITE_SLEEPER_LEAGUE_ID
   lib/
-    sleeper.js        Sleeper API helpers + previous-season walker
+    sleeper.js        Sleeper API helpers + previous-season walker + drafts
     stats.js          pure functions for derived stats
+    drafts.js         draft board helpers (uses `buildTeams` for picker names)
     voter.js          voter token + my-votes localStorage
-  pages/              Home, Stats, Wheel, Rules
+  pages/              Home, Stats, Wheel, Drafts, Rules, Keepers, HeadToHead
   components/         Nav, BottomSheet, Wheel, RuleCard, RuleDiscussionSheet
   styles/             tokens.css, globals.css
 index.html

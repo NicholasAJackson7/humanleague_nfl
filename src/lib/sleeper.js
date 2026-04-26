@@ -32,6 +32,57 @@ export function fetchPlayoffBracket(leagueId, kind = 'winners') {
   return getJSON(`/league/${leagueId}/${kind}_bracket`);
 }
 
+/** League draft list (startup, rookie, etc.). */
+export function fetchLeagueDrafts(leagueId) {
+  return getJSON(`/league/${leagueId}/drafts`);
+}
+
+/** All picks for a draft (includes `metadata` with player names). */
+export function fetchDraftPicks(draftId) {
+  return getJSON(`/draft/${draftId}/picks`);
+}
+
+/** One shared in-memory map for the SPA session (Sleeper NFL players blob is large). */
+let _nflPlayersLookupPromise = null;
+
+/**
+ * Resolves to Map(player_id -> { name, position }) for labeling roster players.
+ * First call downloads `/players/nfl`; keep usage to pages that need it.
+ */
+/** Player ids on a roster (`players` may be array or map). */
+export function rosterPlayerIds(roster) {
+  if (!roster) return [];
+  const p = roster.players;
+  if (Array.isArray(p)) {
+    return [...new Set(p.map((id) => String(id)).filter(Boolean))];
+  }
+  if (p && typeof p === 'object') {
+    return [...new Set(Object.keys(p).map(String).filter(Boolean))];
+  }
+  return [];
+}
+
+export function getNflPlayersLookup() {
+  if (!_nflPlayersLookupPromise) {
+    _nflPlayersLookupPromise = getJSON('/players/nfl').then((data) => {
+      const map = new Map();
+      if (!data || typeof data !== 'object') return map;
+      for (const [id, p] of Object.entries(data)) {
+        if (!p || typeof id !== 'string' || id.length > 12) continue;
+        const fn = p.first_name || '';
+        const ln = p.last_name || '';
+        const name = `${fn} ${ln}`.trim() || id;
+        map.set(id, {
+          name,
+          position: p.position || '',
+        });
+      }
+      return map;
+    });
+  }
+  return _nflPlayersLookupPromise;
+}
+
 export function avatarUrl(avatar, thumb = false) {
   if (!avatar) return null;
   return `https://sleepercdn.com/avatars${thumb ? '/thumbs' : ''}/${avatar}`;

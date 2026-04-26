@@ -1,7 +1,22 @@
 export const config = {
   leagueId: import.meta.env.VITE_SLEEPER_LEAGUE_ID || '',
+  /** ISO 8601, e.g. `2026-08-20` or `2026-08-20T17:00:00-04:00`. Empty = nominations list shows as usual. */
+  keepersRevealAt: (import.meta.env.VITE_KEEPERS_REVEAL_AT || '').trim(),
 };
 
 export function isConfigured() {
   return Boolean(config.leagueId);
+}
+
+/** Milliseconds at which keeper nominations become visible in the UI, or null if not configured / invalid. */
+export function getKeepersRevealTimestamp() {
+  if (!config.keepersRevealAt) return null;
+  const t = Date.parse(config.keepersRevealAt);
+  return Number.isFinite(t) ? t : null;
+}
+
+/** When true, the All nominations table is not shown (and the list is not fetched). */
+export function areKeeperNominationsHiddenInUi() {
+  const ts = getKeepersRevealTimestamp();
+  return ts != null && Date.now() < ts;
 }

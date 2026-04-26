@@ -7,6 +7,8 @@ const items = [
   { to: '/', label: 'Home', icon: HomeIcon, end: true },
   { to: '/stats', label: 'Stats', icon: StatsIcon },
   { to: '/h2h', label: 'H2H', icon: H2HIcon },
+  { to: '/drafts', label: 'Draft', icon: DraftIcon },
+  { to: '/keepers', label: 'Keepers', icon: KeeperIcon },
   { to: '/rules', label: 'Rules', icon: RulesIcon },
 ];
 
@@ -88,6 +90,24 @@ function H2HIcon() {
       <circle cx="8" cy="9" r="3.5" />
       <circle cx="16" cy="9" r="3.5" />
       <path d="M4 20c.8-3 3.5-5 8-5s7.2 2 8 5" />
+    </svg>
+  );
+}
+
+function DraftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+      <path d="M8 7h8M8 11h8M8 15h4" />
+    </svg>
+  );
+}
+
+function KeeperIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3l2.4 4.9L20 9.3l-4 3.9.9 5.6L12 16.9 7.1 18.8 8 13.2 4 9.3l5.6-1.4L12 3z" />
     </svg>
   );
 }
