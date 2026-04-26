@@ -34,9 +34,11 @@ function apiNotOnViteOnly() {
   };
 }
 
-export default defineConfig(({ mode }) => ({
-  plugins: [devAuthApiPlugin(mode), apiNotOnViteOnly(), react()],
-  server: {
-    port: 5173,
-  },
-}));
+export default defineConfig(({ mode }) => {
+  return {
+    plugins: [devAuthApiPlugin(mode), apiNotOnViteOnly(), react()],
+    server: {
+      port: 5173,
+    },
+  };
+});

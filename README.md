@@ -5,7 +5,7 @@ A mobile-first Vite + React app for a Sleeper fantasy football league.
 - `/` — League standings snapshot
 - `/stats` — Previous-season recap (highs, lows, blowouts, bench points, consistency)
 - `/wheel` — Spin-the-wheel keeper picker (weighted, with history)
-- `/rules` — Rule suggestions and voting
+- `/rules` — Rule suggestions, voting, and **per-rule discussion** threads
 
 Hosted on Vercel. Voting state lives in Neon Postgres (free tier). Sleeper data is read from the public Sleeper API.
 
@@ -82,7 +82,8 @@ The script is idempotent, so re-running it is safe.
 4. In "Settings → Environment Variables", add:
    - `VITE_SLEEPER_LEAGUE_ID` — your Sleeper league id, in all environments (Production, Preview, Development).
    - Optional **site login** (shared password for everyone in the league): set `SITE_PASSWORD` to a passphrase and `AUTH_SECRET` to a long random string (at least 16 characters). If either is missing or `AUTH_SECRET` is too short, login is disabled and the app stays public. Add both to Production (and Preview if you use preview deploys).
-5. Apply the schema: Neon dashboard → SQL editor → paste `db/schema.sql` → run.
+5. Apply the schema: Neon dashboard → SQL editor → paste `db/schema.sql` → run.  
+   If you already ran an older `schema.sql`, run it again (it is idempotent) so new tables such as **`rule_posts`** exist for per-rule discussions.
 6. Trigger a deploy. Visit your `*.vercel.app` URL.
 7. Sanity check:
    - `/api/rules` should return `{ "rules": [] }`.
@@ -93,12 +94,14 @@ The script is idempotent, so re-running it is safe.
 ```
 api/                Vercel serverless functions (Node 18, ESM)
   _db.js              shared Postgres pool + helpers
+  _pgErrors.js        detect missing tables / Postgres error shapes
   _auth.js            optional shared-password session (HMAC cookie)
   auth/me.js          session status for the React gate
   auth/login.js       POST password → Set-Cookie
   auth/logout.js      clear session cookie
-  rules.js            GET, POST
+  rules.js            GET, POST (includes `post_count` per rule)
   votes.js            POST, DELETE
+  rule-posts.js       GET, POST, DELETE — forum messages under a rule
 db/
   schema.sql          one-time database setup
 public/
@@ -113,7 +116,7 @@ src/
     stats.js          pure functions for derived stats
     voter.js          voter token + my-votes localStorage
   pages/              Home, Stats, Wheel, Rules
-  components/         Nav, BottomSheet, Wheel, RuleCard
+  components/         Nav, BottomSheet, Wheel, RuleCard, RuleDiscussionSheet
   styles/             tokens.css, globals.css
 index.html
 vercel.json           SPA rewrites (everything except /api -> index.html)
@@ -135,6 +138,12 @@ vite.config.js
 - Each browser generates a random `voter_token` (UUID) on first vote, stored in `localStorage`.
 - Votes are upserted on `(rule_id, voter_token)` so toggling, switching, or removing a vote is idempotent.
 - The Vercel function adds a best-effort per-IP rate limit per function instance (cold-start aware, fine for a small league).
+
+## Rule discussions
+
+- Each rule has a linear thread in `rule_posts` (oldest first in the UI).
+- The same browser token used for voting (`voter:token` / `getVoterToken()`) is sent as `poster_token` when posting; the API never exposes other users’ tokens. Pass `X-Poster-Token` on `GET /api/rule-posts` so responses include `mine: true` on your own messages (for **Delete**).
+- Deleting a post requires the same `poster_token` that created it.
 
 ## Out of scope (v1)
 

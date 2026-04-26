@@ -22,3 +22,15 @@ create table if not exists votes (
 );
 
 create index if not exists votes_rule_id_idx on votes (rule_id);
+
+-- Per-rule discussion (forum-style thread)
+create table if not exists rule_posts (
+  id           uuid primary key default gen_random_uuid(),
+  rule_id      uuid not null references rules(id) on delete cascade,
+  body         text not null check (length(body) between 1 and 2000),
+  author       text null check (author is null or length(author) <= 60),
+  poster_token text not null check (length(poster_token) between 8 and 80),
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists rule_posts_rule_created_idx on rule_posts (rule_id, created_at asc);

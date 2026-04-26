@@ -1,7 +1,7 @@
 import React from 'react';
 import './RuleCard.css';
 
-export default function RuleCard({ rule, myVote, onVote, busy }) {
+export default function RuleCard({ rule, myVote, onVote, busy, postCount = 0, onDiscuss }) {
   const score = (rule.up || 0) - (rule.down || 0);
   return (
     <div className="rule-card">
@@ -39,6 +39,12 @@ export default function RuleCard({ rule, myVote, onVote, busy }) {
           {rule.author && <span>by {rule.author}</span>}
           <span>{(rule.up || 0)} up · {(rule.down || 0)} down</span>
         </div>
+        {onDiscuss && (
+          <button type="button" className="rule-discuss-btn" onClick={() => onDiscuss(rule)}>
+            Discussion
+            {postCount > 0 ? <span className="rule-discuss-count">{postCount}</span> : null}
+          </button>
+        )}
       </div>
     </div>
   );

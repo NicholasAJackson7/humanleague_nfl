@@ -1,0 +1,83 @@
+.rule-discuss-lead {
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.rule-discuss-err {
+  color: var(--color-danger, #f87171);
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.rule-discuss-notice {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: rgba(56, 189, 248, 0.08);
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.rule-thread {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rule-thread-item {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 12px;
+}
+
+.rule-thread-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.rule-thread-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.rule-thread-author {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.rule-thread-del {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 4px 8px;
+  min-height: auto;
+}
+
+.rule-thread-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.rule-discuss-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+  margin-top: 8px;
+}
+
+.rule-discuss-compose label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

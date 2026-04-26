@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import RuleCard from '../components/RuleCard.jsx';
 import BottomSheet from '../components/BottomSheet.jsx';
+import RuleDiscussionSheet from '../components/RuleDiscussionSheet.jsx';
 import { getVoterToken, loadMyVotes, saveMyVote } from '../lib/voter.js';
 
 export default function Rules() {
   const [rules, setRules] = useState(null);
   const [error, setError] = useState(null);
   const [showSheet, setShowSheet] = useState(false);
+  const [discussionRule, setDiscussionRule] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [busyRule, setBusyRule] = useState(null);
   const [myVotes, setMyVotes] = useState(loadMyVotes);
@@ -120,6 +122,12 @@ export default function Rules() {
     }
   }
 
+  const syncPostCount = useCallback((ruleId, count) => {
+    setRules((list) =>
+      list ? list.map((r) => (r.id === ruleId ? { ...r, post_count: count } : r)) : list
+    );
+  }, []);
+
   const sorted = rules
     ? [...rules].sort(
         (a, b) =>
@@ -178,6 +186,8 @@ export default function Rules() {
               myVote={myVotes[rule.id] || 0}
               busy={busyRule === rule.id}
               onVote={vote}
+              postCount={rule.post_count ?? 0}
+              onDiscuss={setDiscussionRule}
             />
           ))}
         </div>
@@ -190,6 +200,15 @@ export default function Rules() {
       >
         <SuggestForm onSubmit={submitRule} submitting={submitting} />
       </BottomSheet>
+
+      {discussionRule ? (
+        <RuleDiscussionSheet
+          key={discussionRule.id}
+          rule={discussionRule}
+          onClose={() => setDiscussionRule(null)}
+          onPostCount={syncPostCount}
+        />
+      ) : null}
     </div>
   );
 }
