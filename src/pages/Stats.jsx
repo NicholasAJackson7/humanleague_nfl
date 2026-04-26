@@ -280,15 +280,21 @@ function PlayoffSection({ playoff, season }) {
                 <table>
                   <thead>
                     <tr>
-                      <th>Round</th>
+                      <th>Rd</th>
+                      <th>M</th>
+                      <th>Game</th>
                       <th>Winner</th>
                       <th>Loser</th>
                     </tr>
                   </thead>
                   <tbody>
                     {playoff.bracket.decisiveMatches.map((m, i) => (
-                      <tr key={`${m.round}-${m.winner}-${m.loser}-${i}`}>
+                      <tr key={`${m.round}-${m.match}-${i}`}>
                         <td>{m.round}</td>
+                        <td className="muted">{m.match || '—'}</td>
+                        <td className="muted" style={{ fontSize: '0.92em' }}>
+                          {m.slotLabel || '—'}
+                        </td>
                         <td>{m.winner}</td>
                         <td className="muted">{m.loser}</td>
                       </tr>

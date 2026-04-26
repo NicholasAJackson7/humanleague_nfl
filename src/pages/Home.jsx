@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { config } from '../config.js';
 import { fetchLeague, fetchUsers, fetchRosters, avatarUrl } from '../lib/sleeper.js';
+import { fetchHallOfFame } from '../lib/hallOfFame.js';
 
 export default function Home() {
   const [state, setState] = useState({ status: 'loading' });
+  const [hof, setHof] = useState({ status: 'idle' });
 
   useEffect(() => {
     if (!config.leagueId) {
@@ -31,12 +33,45 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!config.leagueId) return;
+    let cancelled = false;
+    setHof({ status: 'loading' });
+    fetchHallOfFame(config.leagueId)
+      .then((rows) => {
+        if (!cancelled) setHof({ status: 'ready', rows });
+      })
+      .catch((err) => {
+        if (!cancelled) setHof({ status: 'error', message: err.message || String(err) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="page">
       <header className="page-header">
         <span className="eyebrow">Fantasy Dashboard</span>
         <h1>{state.league?.name || 'Your league'}</h1>
       </header>
+
+      {config.leagueId && hof.status === 'loading' && (
+        <div className="card" style={{ marginBottom: 16 }} aria-busy="true">
+          <div className="skeleton" style={{ height: 20, width: '35%', marginBottom: 12 }} />
+          <div className="skeleton" style={{ height: 56, width: '100%' }} />
+        </div>
+      )}
+      {config.leagueId && hof.status === 'ready' && hof.rows?.length > 0 && (
+        <HallOfFame rows={hof.rows} />
+      )}
+      {config.leagueId && hof.status === 'error' && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <p className="muted" style={{ margin: 0 }}>
+            Could not load Hall of Fame: {hof.message}
+          </p>
+        </div>
+      )}
 
       {state.status === 'no-config' && <NoConfig />}
       {state.status === 'loading' && <LoadingCard />}
@@ -56,6 +91,69 @@ export default function Home() {
         <FeatureLink to="/rules" title="Rule suggestions" body="Suggest a rule and vote on what should change next season." />
       </div>
     </div>
+  );
+}
+
+function HallOfFame({ rows }) {
+  return (
+    <section className="card" style={{ marginBottom: 16 }}>
+      <div className="row" style={{ marginBottom: 12, alignItems: 'baseline', gap: 8 }}>
+        <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Hall of Fame</h2>
+        <span className="dim" style={{ fontSize: 13 }}>Playoff champions by season</span>
+      </div>
+      <div className="scroll-x">
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left', padding: '8px 10px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-dim)' }}>
+                Season
+              </th>
+              <th style={{ textAlign: 'left', padding: '8px 10px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-dim)' }}>
+                Champion
+              </th>
+              <th style={{ textAlign: 'left', padding: '8px 10px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-dim)' }}>
+                Runner-up
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.season} style={{ borderTop: '1px solid var(--color-border)' }}>
+                <td style={{ padding: '12px 10px', fontWeight: 700, whiteSpace: 'nowrap' }}>{r.season}</td>
+                <td style={{ padding: '12px 10px' }}>
+                  <div className="row" style={{ gap: 10, alignItems: 'center' }}>
+                    {r.champion.avatar ? (
+                      <img src={r.champion.avatar} alt="" width="28" height="28" style={{ borderRadius: '50%' }} />
+                    ) : (
+                      <span style={{ width: 28, height: 28, display: 'inline-block' }} />
+                    )}
+                    <span className="truncate" style={{ maxWidth: 160 }} title={r.champion.name}>
+                      {r.champion.name}
+                    </span>
+                  </div>
+                </td>
+                <td style={{ padding: '12px 10px' }}>
+                  {r.runnerUp ? (
+                    <div className="row" style={{ gap: 10, alignItems: 'center' }}>
+                      {r.runnerUp.avatar ? (
+                        <img src={r.runnerUp.avatar} alt="" width="28" height="28" style={{ borderRadius: '50%' }} />
+                      ) : (
+                        <span style={{ width: 28, height: 28, display: 'inline-block' }} />
+                      )}
+                      <span className="truncate muted" style={{ maxWidth: 160 }} title={r.runnerUp.name}>
+                        {r.runnerUp.name}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
