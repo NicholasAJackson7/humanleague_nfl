@@ -7,9 +7,13 @@
     </linearGradient>
   </defs>
   <rect width="512" height="512" fill="#0b1220"/>
-  <circle cx="256" cy="256" r="128" fill="url(#g)"/>
-  <path d="M256 128 L256 384 M128 256 L384 256 M165 165 L347 347 M347 165 L165 347"
-        stroke="#0b1220" stroke-width="12" stroke-linecap="round"/>
-  <circle cx="256" cy="256" r="30" fill="#0b1220"/>
-  <circle cx="256" cy="256" r="13" fill="#e6edf7"/>
+  <!-- Football kept inside ~center 70% for launcher mask safe zone -->
+  <g transform="translate(256 256) rotate(-26)">
+    <ellipse cx="0" cy="0" rx="150" ry="88" fill="url(#g)" stroke="#0b1220" stroke-width="7"/>
+    <line x1="0" y1="-56" x2="0" y2="56" stroke="#0b1220" stroke-width="11" stroke-linecap="round"/>
+    <line x1="-32" y1="-30" x2="32" y2="-30" stroke="#0b1220" stroke-width="7.5" stroke-linecap="round"/>
+    <line x1="-34" y1="-8" x2="34" y2="-8" stroke="#0b1220" stroke-width="7.5" stroke-linecap="round"/>
+    <line x1="-34" y1="12" x2="34" y2="12" stroke="#0b1220" stroke-width="7.5" stroke-linecap="round"/>
+    <line x1="-32" y1="32" x2="32" y2="32" stroke="#0b1220" stroke-width="7.5" stroke-linecap="round"/>
+  </g>
 </svg>

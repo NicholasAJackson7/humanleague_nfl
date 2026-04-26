@@ -7,9 +7,12 @@
     </linearGradient>
   </defs>
   <rect width="192" height="192" rx="38" fill="#0b1220"/>
-  <circle cx="96" cy="96" r="64" fill="url(#g)"/>
-  <path d="M96 32 L96 160 M32 96 L160 96 M50.7 50.7 L141.3 141.3 M141.3 50.7 L50.7 141.3"
-        stroke="#0b1220" stroke-width="6" stroke-linecap="round"/>
-  <circle cx="96" cy="96" r="14" fill="#0b1220"/>
-  <circle cx="96" cy="96" r="6" fill="#e6edf7"/>
+  <g transform="translate(96 96) rotate(-26)">
+    <ellipse cx="0" cy="0" rx="68" ry="40" fill="url(#g)" stroke="#0b1220" stroke-width="3"/>
+    <line x1="0" y1="-26" x2="0" y2="26" stroke="#0b1220" stroke-width="5" stroke-linecap="round"/>
+    <line x1="-14" y1="-14" x2="14" y2="-14" stroke="#0b1220" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="-16" y1="-4" x2="16" y2="-4" stroke="#0b1220" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="-16" y1="6" x2="16" y2="6" stroke="#0b1220" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="-14" y1="16" x2="14" y2="16" stroke="#0b1220" stroke-width="3.5" stroke-linecap="round"/>
+  </g>
 </svg>
