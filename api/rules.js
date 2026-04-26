@@ -1,7 +1,10 @@
 import { getSql, rateLimit, clientIp, readJsonBody, send } from './_db.js';
+import { assertSiteAuth } from './_auth.js';
 
 export default async function handler(req, res) {
   try {
+    if (!assertSiteAuth(req, res, send)) return;
+
     const sql = getSql();
 
     if (req.method === 'GET') {

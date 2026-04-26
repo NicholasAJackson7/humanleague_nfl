@@ -13,7 +13,7 @@ export default function Rules() {
 
   async function load() {
     try {
-      const res = await fetch('/api/rules');
+      const res = await fetch('/api/rules', { credentials: 'include' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error || `Failed (${res.status})`);
@@ -35,6 +35,7 @@ export default function Rules() {
       const res = await fetch('/api/rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ title, description, author }),
       });
       const data = await res.json().catch(() => ({}));
@@ -81,11 +82,13 @@ export default function Rules() {
           ? await fetch('/api/votes', {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
               body: JSON.stringify({ rule_id: ruleId, voter_token: voterToken }),
             })
           : await fetch('/api/votes', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
               body: JSON.stringify({
                 rule_id: ruleId,
                 voter_token: voterToken,

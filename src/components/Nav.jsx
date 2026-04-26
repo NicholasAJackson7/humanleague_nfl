@@ -1,5 +1,6 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext.jsx';
 import './Nav.css';
 
 const items = [
@@ -10,8 +11,21 @@ const items = [
 ];
 
 export default function Nav() {
+  const { authEnabled, authenticated, devBypass, refresh } = useAuth();
+  const navigate = useNavigate();
+  const showLogout = authEnabled && authenticated && !devBypass;
+
+  async function onLogout() {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } finally {
+      await refresh();
+      navigate('/login', { replace: true });
+    }
+  }
+
   return (
-    <nav className="bottom-nav" aria-label="Primary">
+    <nav className={'bottom-nav' + (showLogout ? ' bottom-nav--auth' : '')} aria-label="Primary">
       <ul>
         {items.map(({ to, label, icon: Icon, end }) => (
           <li key={to}>
@@ -25,8 +39,26 @@ export default function Nav() {
             </NavLink>
           </li>
         ))}
+        {showLogout && (
+          <li>
+            <button type="button" className="tab tab-logout" onClick={onLogout}>
+              <LogoutIcon />
+              <span>Log out</span>
+            </button>
+          </li>
+        )}
       </ul>
     </nav>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
   );
 }
 

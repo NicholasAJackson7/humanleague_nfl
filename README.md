@@ -50,6 +50,8 @@ npm run dev
 
 Then visit http://localhost:5173.
 
+With `npm run dev`, Vite serves **`/api/auth/*` only** (so optional `SITE_PASSWORD` login works from `.env.local`). Other `/api/*` routes still return 503 until you run `npx vercel dev` (needed for Rules + Postgres).
+
 For **Rules + voting** (needs `DATABASE_URL` and `db/schema.sql` applied):
 
 ```bash
@@ -79,6 +81,7 @@ The script is idempotent, so re-running it is safe.
 3. In the project's "Storage" tab, click "Connect Database → Neon" and provision a new Postgres. This injects `DATABASE_URL` automatically.
 4. In "Settings → Environment Variables", add:
    - `VITE_SLEEPER_LEAGUE_ID` — your Sleeper league id, in all environments (Production, Preview, Development).
+   - Optional **site login** (shared password for everyone in the league): set `SITE_PASSWORD` to a passphrase and `AUTH_SECRET` to a long random string (at least 16 characters). If either is missing or `AUTH_SECRET` is too short, login is disabled and the app stays public. Add both to Production (and Preview if you use preview deploys).
 5. Apply the schema: Neon dashboard → SQL editor → paste `db/schema.sql` → run.
 6. Trigger a deploy. Visit your `*.vercel.app` URL.
 7. Sanity check:
@@ -89,7 +92,11 @@ The script is idempotent, so re-running it is safe.
 
 ```
 api/                Vercel serverless functions (Node 18, ESM)
-  _db.js              shared Neon client + helpers
+  _db.js              shared Postgres pool + helpers
+  _auth.js            optional shared-password session (HMAC cookie)
+  auth/me.js          session status for the React gate
+  auth/login.js       POST password → Set-Cookie
+  auth/logout.js      clear session cookie
   rules.js            GET, POST
   votes.js            POST, DELETE
 db/
@@ -131,7 +138,7 @@ vite.config.js
 
 ## Out of scope (v1)
 
-- Real authentication / accounts
+- Per-user accounts or OAuth (only optional shared site password + HttpOnly cookie)
 - Server-side caching of Sleeper data
 - Real-time vote updates (refetch on action)
 - Optimal-lineup analysis (would require fetching the full Sleeper player database)
