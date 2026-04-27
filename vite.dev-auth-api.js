@@ -2,6 +2,7 @@ import { loadEnv } from 'vite';
 import meHandler from './api/auth/me.js';
 import loginHandler from './api/auth/login.js';
 import logoutHandler from './api/auth/logout.js';
+import configHandler from './api/auth/config.js';
 
 /** Vite's Node `res` lacks Express-style `status` / `send` used by `send()` in `api/_db.js`. */
 function patchRes(res) {
@@ -28,7 +29,7 @@ export function devAuthApiPlugin(mode) {
     enforce: 'pre',
     configureServer(server) {
       const env = loadEnv(mode, process.cwd(), '');
-      for (const k of ['SITE_PASSWORD', 'AUTH_SECRET']) {
+      for (const k of ['SITE_PASSWORD', 'AUTH_SECRET', 'DATABASE_URL', 'APP_USERS_ENABLED']) {
         if (k in env) process.env[k] = env[k];
       }
 
@@ -39,6 +40,10 @@ export function devAuthApiPlugin(mode) {
         patchRes(res);
 
         try {
+          if (path === '/api/auth/config' && req.method === 'GET') {
+            await configHandler(req, res);
+            return;
+          }
           if (path === '/api/auth/me' && req.method === 'GET') {
             await meHandler(req, res);
             return;

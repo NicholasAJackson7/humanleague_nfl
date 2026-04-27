@@ -1,5 +1,5 @@
 import { send } from '../_db.js';
-import { buildClearSessionCookieHeader, isSiteAuthEnabled } from '../_auth.js';
+import { buildClearSessionCookieHeader, isAuthProtectionEnabled } from '../_auth.js';
 
 export default async function handler(req, res) {
   try {
@@ -7,7 +7,7 @@ export default async function handler(req, res) {
       res.setHeader('Allow', 'POST');
       return send(res, 405, { error: 'Method not allowed' });
     }
-    if (isSiteAuthEnabled()) {
+    if (isAuthProtectionEnabled()) {
       res.setHeader('Set-Cookie', buildClearSessionCookieHeader());
     }
     return send(res, 200, { ok: true });

@@ -7,12 +7,22 @@ async function fetchAuthMe() {
   return res;
 }
 
+function normalizeUser(raw) {
+  if (!raw || typeof raw !== 'object' || typeof raw.username !== 'string') return null;
+  return {
+    username: raw.username,
+    role: typeof raw.role === 'string' ? raw.role : 'manager',
+    sleeperUserId: raw.sleeperUserId == null ? null : String(raw.sleeperUserId),
+  };
+}
+
 export function AuthProvider({ children }) {
   const [state, setState] = useState({
     ready: false,
     authenticated: false,
     authEnabled: false,
     devBypass: false,
+    user: null,
   });
 
   const refresh = useCallback(async () => {
@@ -24,6 +34,7 @@ export function AuthProvider({ children }) {
           authenticated: true,
           authEnabled: false,
           devBypass: true,
+          user: null,
         });
         return;
       }
@@ -33,6 +44,7 @@ export function AuthProvider({ children }) {
           authenticated: false,
           authEnabled: true,
           devBypass: false,
+          user: null,
         });
         return;
       }
@@ -42,6 +54,7 @@ export function AuthProvider({ children }) {
         authenticated: Boolean(data.authenticated),
         authEnabled: Boolean(data.authEnabled),
         devBypass: false,
+        user: normalizeUser(data.user),
       });
     } catch {
       if (import.meta.env.DEV) {
@@ -50,6 +63,7 @@ export function AuthProvider({ children }) {
           authenticated: true,
           authEnabled: false,
           devBypass: true,
+          user: null,
         });
         return;
       }
@@ -58,6 +72,7 @@ export function AuthProvider({ children }) {
         authenticated: false,
         authEnabled: true,
         devBypass: false,
+        user: null,
       });
     }
   }, []);

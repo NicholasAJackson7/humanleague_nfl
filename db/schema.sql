@@ -54,3 +54,16 @@ create table if not exists keeper_nominations (
 );
 
 create index if not exists keeper_nominations_season_idx on keeper_nominations (source_season desc);
+
+-- League member logins (commissioner-managed). Set APP_USERS_ENABLED=1 on the host when ready.
+create table if not exists app_users (
+  id                uuid primary key default gen_random_uuid(),
+  username          text not null check (length(username) between 2 and 48),
+  password_hash     text not null check (length(password_hash) between 16 and 220),
+  sleeper_user_id   text null check (sleeper_user_id is null or length(sleeper_user_id) between 4 and 80),
+  role              text not null default 'manager' check (role in ('manager', 'commissioner')),
+  disabled          boolean not null default false,
+  created_at        timestamptz not null default now()
+);
+
+create unique index if not exists app_users_username_lower_idx on app_users (lower(username));
