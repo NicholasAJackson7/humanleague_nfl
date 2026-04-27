@@ -115,7 +115,7 @@ export default function Login() {
               onChange={(e) => setUsername(e.target.value)}
               disabled={submitting}
               required={usernameRequired}
-              placeholder={userLogin ? 'e.g. nicho' : 'Optional for shared password'}
+              placeholder={userLogin ? 'e.g. Dansa-Bellend' : 'Optional for shared password'}
             />
             {modes != null && userLogin && siteLogin ? (
               <p className="login-hint">Leave blank if you are using the shared league password instead.</p>
