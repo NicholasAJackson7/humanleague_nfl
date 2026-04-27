@@ -19,6 +19,22 @@ export function isSiteAuthEnabled() {
   return getSitePassword().length > 0 && authSecret().length >= 16;
 }
 
+/** Per-user accounts: commissioner sets APP_USERS_ENABLED=1 after running schema + creating users. */
+export function isUserAuthEnabled() {
+  const db = process.env.DATABASE_URL;
+  return (
+    typeof db === 'string' &&
+    db.length > 0 &&
+    authSecret().length >= 16 &&
+    process.env.APP_USERS_ENABLED === '1'
+  );
+}
+
+/** Site-wide protection: shared password and/or member accounts. */
+export function isAuthProtectionEnabled() {
+  return isSiteAuthEnabled() || isUserAuthEnabled();
+}
+
 function signPayload(obj) {
   const secret = authSecret();
   const payload = Buffer.from(JSON.stringify(obj), 'utf8').toString('base64url');
@@ -71,9 +87,15 @@ export function getSessionTokenFromRequest(req) {
 }
 
 export function sessionIsValid(req) {
-  if (!isSiteAuthEnabled()) return true;
+  if (!isAuthProtectionEnabled()) return true;
   const token = getSessionTokenFromRequest(req);
   return verifyToken(token) != null;
+}
+
+/** Parsed session payload, or null. `sub` is present for member (app user) sessions. */
+export function getSessionPayload(req) {
+  const token = getSessionTokenFromRequest(req);
+  return verifyToken(token);
 }
 
 /**
@@ -81,7 +103,7 @@ export function sessionIsValid(req) {
  * Otherwise returns true (caller should continue).
  */
 export function assertSiteAuth(req, res, send) {
-  if (!isSiteAuthEnabled()) return true;
+  if (!isAuthProtectionEnabled()) return true;
   if (sessionIsValid(req)) return true;
   send(res, 401, { error: 'Unauthorized' });
   return false;
@@ -94,9 +116,10 @@ export function timingSafeEqualPassword(plain, expected) {
   return crypto.timingSafeEqual(a, b);
 }
 
-export function createSessionCookieValue() {
+/** @param {Record<string, unknown>} [extra] e.g. `{ sub: userUuid }` for member sessions */
+export function createSessionCookieValue(extra = {}) {
   const exp = Date.now() + MAX_AGE_SEC * 1000;
-  return signPayload({ exp });
+  return signPayload({ exp, ...extra });
 }
 
 export function buildSetSessionCookieHeader(token) {

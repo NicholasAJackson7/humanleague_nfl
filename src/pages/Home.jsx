@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { config } from '../config.js';
 import { fetchLeague, fetchUsers, fetchRosters, avatarUrl } from '../lib/sleeper.js';
 import { fetchHallOfFame } from '../lib/hallOfFame.js';
+import './Home.css';
 
 export default function Home() {
   const [state, setState] = useState({ status: 'loading' });
@@ -51,9 +52,19 @@ export default function Home() {
 
   return (
     <div className="page">
-      <header className="page-header">
-        <span className="eyebrow">Fantasy Dashboard</span>
-        <h1>{state.league?.name || 'Your league'}</h1>
+      <header className="card home-banner">
+        <img
+          className="home-banner__logo"
+          src="/icons/icon-192.svg"
+          width="192"
+          height="192"
+          alt=""
+          decoding="async"
+        />
+        <div className="home-banner__text">
+          <span className="eyebrow">Fantasy Dashboard</span>
+          <h1 className="home-banner__title">{state.league?.name || 'Your league'}</h1>
+        </div>
       </header>
 
       {config.leagueId && hof.status === 'loading' && (

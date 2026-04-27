@@ -85,6 +85,7 @@ The script is idempotent, so re-running it is safe.
 4. In "Settings → Environment Variables", add:
    - `VITE_SLEEPER_LEAGUE_ID` — your Sleeper league id, in all environments (Production, Preview, Development).
    - Optional **site login** (shared password for everyone in the league): set `SITE_PASSWORD` to a passphrase and `AUTH_SECRET` to a long random string (at least 16 characters). If either is missing or `AUTH_SECRET` is too short, login is disabled and the app stays public. Add both to Production (and Preview if you use preview deploys).
+   - Optional **per-member logins** (after `app_users` exists in `db/schema.sql`): set `APP_USERS_ENABLED=1` alongside `DATABASE_URL` and `AUTH_SECRET`. Create rows with `npm run create-user -- <username> <password> [sleeper_user_id]` (requires Node 20+ for `--env-file` in the script). You can use member accounts only, shared password only, or both; the sign-in page adapts.
 5. Apply the schema: Neon dashboard → SQL editor → paste `db/schema.sql` → run.  
    If you already ran an older `schema.sql`, run it again (it is idempotent) so new tables such as **`rule_posts`** exist for per-rule discussions.
 6. Trigger a deploy. Visit your `*.vercel.app` URL.
@@ -98,9 +99,11 @@ The script is idempotent, so re-running it is safe.
 api/                Vercel serverless functions (Node 18, ESM)
   _db.js              shared Postgres pool + helpers
   _pgErrors.js        detect missing tables / Postgres error shapes
-  _auth.js            optional shared-password session (HMAC cookie)
-  auth/me.js          session status for the React gate
-  auth/login.js       POST password → Set-Cookie
+  _auth.js            optional shared-password + member session (HMAC cookie)
+  _password.js        scrypt password hashes for app_users
+  auth/config.js      GET — which login modes are enabled (no cookie)
+  auth/me.js          session status + optional `user` for member sessions
+  auth/login.js       POST username/password or shared password → Set-Cookie
   auth/logout.js      clear session cookie
   rules.js            GET, POST (includes `post_count` per rule)
   votes.js            POST, DELETE
