@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "db:verify": "node scripts/verify-database-url.mjs",
-    "create-user": "node --env-file=.env.local scripts/create-user.mjs"
+    "create-user": "node --env-file=.env.local scripts/create-user.mjs",
+    "hash-password": "node scripts/hash-password.mjs"
   },
   "dependencies": {
     "pg": "^8.13.1",
