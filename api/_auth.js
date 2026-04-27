@@ -19,14 +19,21 @@ export function isSiteAuthEnabled() {
   return getSitePassword().length > 0 && authSecret().length >= 16;
 }
 
-/** Per-user accounts: commissioner sets APP_USERS_ENABLED=1 after running schema + creating users. */
+function envFlagTrue(name) {
+  const v = process.env[name];
+  if (typeof v !== 'string') return false;
+  const s = v.trim().toLowerCase();
+  return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+}
+
+/** Per-user accounts: commissioner sets APP_USERS_ENABLED after running schema + creating users. */
 export function isUserAuthEnabled() {
   const db = process.env.DATABASE_URL;
   return (
     typeof db === 'string' &&
     db.length > 0 &&
     authSecret().length >= 16 &&
-    process.env.APP_USERS_ENABLED === '1'
+    envFlagTrue('APP_USERS_ENABLED')
   );
 }
 
