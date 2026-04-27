@@ -17,9 +17,9 @@ export function verifyPassword(plain, stored) {
     return false;
   }
   const parts = stored.split('$');
-  if (parts.length !== 4) return false;
-  const salt = Buffer.from(parts[2], 'base64url');
-  const expected = Buffer.from(parts[3], 'base64url');
+  if (parts.length !== 3 || parts[0] !== PREFIX) return false;
+  const salt = Buffer.from(parts[1], 'base64url');
+  const expected = Buffer.from(parts[2], 'base64url');
   if (salt.length < 8 || expected.length < 32) return false;
   let actual;
   try {
