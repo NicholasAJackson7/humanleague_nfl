@@ -1,3 +1,106 @@
+.keepers-help {
+  margin: 0 0 var(--space-4);
+  border-radius: 12px;
+  border: 1px solid rgba(100, 116, 139, 0.16);
+  background: rgba(15, 22, 40, 0.45);
+  overflow: hidden;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.keepers-help[open] {
+  border-color: rgba(56, 189, 248, 0.28);
+  background: rgba(15, 22, 40, 0.7);
+}
+
+.keepers-help__summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  user-select: none;
+  outline: none;
+  font-size: var(--fs-sm);
+  color: var(--color-text-dim);
+}
+
+.keepers-help__summary::-webkit-details-marker {
+  display: none;
+}
+
+.keepers-help__summary:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.55);
+  outline-offset: -2px;
+}
+
+.keepers-help__summary:hover {
+  color: var(--color-text);
+}
+
+.keepers-help__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.16);
+  color: #7dd3fc;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.keepers-help__label {
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.keepers-help__hint {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--color-text-dim);
+}
+
+.keepers-help[open] .keepers-help__hint {
+  opacity: 0;
+}
+
+.keepers-help__chevron {
+  color: var(--color-text-dim);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.keepers-help[open] .keepers-help__chevron {
+  transform: rotate(180deg);
+  color: #7dd3fc;
+}
+
+.keepers-help__body {
+  padding: 4px 14px 12px;
+  border-top: 1px solid rgba(100, 116, 139, 0.14);
+}
+
+.keepers-help__body p {
+  margin: 10px 0 0;
+  line-height: 1.55;
+}
+
+.keepers-help__body p strong {
+  color: var(--color-text);
+}
+
+@media (max-width: 520px) {
+  .keepers-help__hint {
+    display: none;
+  }
+}
+
 .keepers-reveal-gate {
   margin-top: var(--space-2);
   padding: var(--space-4);
@@ -37,57 +140,6 @@
   border-radius: 12px;
 }
 
-/* Segment control (mode picker) */
-.keepers-segment {
-  display: flex;
-  gap: 4px;
-  padding: 5px;
-  margin-bottom: var(--space-4);
-  max-width: 100%;
-  border-radius: 14px;
-  background: rgba(8, 12, 24, 0.55);
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-.keepers-segment__btn {
-  flex: 1;
-  min-height: 46px;
-  padding: 0 var(--space-3);
-  border-radius: 11px;
-  border: none;
-  background: transparent;
-  color: var(--color-text-dim);
-  font-weight: 600;
-  font-size: var(--fs-sm);
-  line-height: 1.25;
-  transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.keepers-segment__btn:hover:not(.keepers-segment__btn--active) {
-  color: var(--color-text);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.keepers-segment__btn--active {
-  color: #f0f9ff;
-  background: linear-gradient(
-    155deg,
-    rgba(14, 165, 233, 0.42) 0%,
-    rgba(56, 189, 248, 0.18) 100%
-  );
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-
-.keepers-segment__btn--active:hover {
-  color: #f0f9ff;
-}
-
 /* Form shell */
 .keepers-form-card {
   background: linear-gradient(
@@ -112,6 +164,64 @@
   box-shadow: var(--shadow-sm);
 }
 
+.keepers-mine-card {
+  margin-bottom: var(--space-4);
+  background: linear-gradient(
+    165deg,
+    rgba(20, 50, 70, 0.7) 0%,
+    rgba(15, 32, 50, 0.7) 100%
+  );
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  box-shadow: var(--shadow-sm);
+}
+
+.keepers-mine-eyebrow {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+}
+
+.keepers-mine-empty {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--color-text-dim);
+}
+
+.keepers-mine-note {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  color: var(--color-text-dim);
+}
+
+.keepers-mine-note strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.keepers-mine-picks {
+  margin: 0 0 var(--space-2);
+  font-size: 1rem;
+  line-height: 1.4;
+  color: var(--color-text);
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.keepers-mine-meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: 12px;
+  color: var(--color-text-dim);
+}
+
 .keepers-list-title {
   margin: 0 0 var(--space-1);
   font-size: 1.05rem;
@@ -125,6 +235,38 @@
   font-size: var(--fs-sm);
   color: var(--color-text-dim);
   line-height: 1.45;
+}
+
+.keepers-locked-season {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  border-radius: 12px;
+  background: rgba(15, 22, 40, 0.55);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.keepers-locked-season .keepers-label {
+  margin: 0;
+}
+
+.keepers-locked-season__value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f0f9ff;
+  letter-spacing: -0.01em;
+}
+
+.keepers-locked-season__sub {
+  font-size: var(--fs-xs);
+  color: var(--color-text-dim);
+}
+
+.keepers-locked-season__sub strong {
+  color: var(--color-text);
+  font-weight: 600;
 }
 
 .keepers-page .keepers-form label {

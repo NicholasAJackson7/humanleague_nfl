@@ -1,34 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { config } from '../config.js';
-import { fetchLeague, fetchUsers, fetchRosters, avatarUrl } from '../lib/sleeper.js';
+import { fetchLeague } from '../lib/sleeper.js';
 import { fetchHallOfFame } from '../lib/hallOfFame.js';
 import './Home.css';
 
 export default function Home() {
-  const [state, setState] = useState({ status: 'loading' });
+  const [league, setLeague] = useState(null);
   const [hof, setHof] = useState({ status: 'idle' });
 
   useEffect(() => {
-    if (!config.leagueId) {
-      setState({ status: 'no-config' });
-      return;
-    }
+    if (!config.leagueId) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const [league, users, rosters] = await Promise.all([
-          fetchLeague(config.leagueId),
-          fetchUsers(config.leagueId),
-          fetchRosters(config.leagueId),
-        ]);
-        if (cancelled) return;
-        setState({ status: 'ready', league, users, rosters });
-      } catch (err) {
-        if (cancelled) return;
-        setState({ status: 'error', error: err.message });
-      }
-    })();
+    fetchLeague(config.leagueId)
+      .then((l) => {
+        if (!cancelled) setLeague(l);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -51,24 +39,21 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="page">
-      <header className="card home-banner">
-        <img
-          className="home-banner__logo"
-          src="/icons/icon-192.svg"
-          width="192"
-          height="192"
-          alt=""
-          decoding="async"
-        />
-        <div className="home-banner__text">
-          <span className="eyebrow">Fantasy Dashboard</span>
-          <h1 className="home-banner__title">{state.league?.name || 'Your league'}</h1>
+    <div className="page home-page">
+      <section className="home-hero" aria-label="League home">
+        <div className="home-hero__inner">
+          <h1 className="home-hero__title">{league?.name || 'Your league'}</h1>
+          <p className="home-hero__intro">
+            <span className="home-hero__intro-lead">So it begins...</span>
+            The 2026 season is approaching, time to pick your keepers for next
+            season and discuss rule changes.
+          </p>
         </div>
-      </header>
+      </section>
 
+      {!config.leagueId && <NoConfig />}
       {config.leagueId && hof.status === 'loading' && (
-        <div className="card" style={{ marginBottom: 16 }} aria-busy="true">
+        <div className="card" aria-busy="true">
           <div className="skeleton" style={{ height: 20, width: '35%', marginBottom: 12 }} />
           <div className="skeleton" style={{ height: 56, width: '100%' }} />
         </div>
@@ -77,29 +62,32 @@ export default function Home() {
         <HallOfFame rows={hof.rows} />
       )}
       {config.leagueId && hof.status === 'error' && (
-        <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card">
           <p className="muted" style={{ margin: 0 }}>
             Could not load Hall of Fame: {hof.message}
           </p>
         </div>
       )}
 
-      {state.status === 'no-config' && <NoConfig />}
-      {state.status === 'loading' && <LoadingCard />}
-      {state.status === 'error' && (
-        <div className="card">
-          <h3>Could not load league</h3>
-          <p className="muted">{state.error}</p>
-          <p className="dim">Double check your VITE_SLEEPER_LEAGUE_ID env var.</p>
-        </div>
-      )}
-      {state.status === 'ready' && (
-        <Standings league={state.league} users={state.users} rosters={state.rosters} />
-      )}
-
-      <div className="card-grid">
-        <FeatureLink to="/stats" title="Last season stats" body="Standings, blowouts, bench points and more." />
-        <FeatureLink to="/rules" title="Rule suggestions" body="Suggest a rule and vote on what should change next season." />
+      <div className="home-features">
+        <FeatureLink
+          to="/keepers"
+          icon={KeeperIcon}
+          title="Keeper Selection"
+          body="Lock in your keepers for the upcoming season."
+        />
+        <FeatureLink
+          to="/rules"
+          icon={RulesIcon}
+          title="Rule Changes"
+          body="Suggest a rule and vote on what should change next season."
+        />
+        <FeatureLink
+          to="/stats"
+          icon={StatsIcon}
+          title="League Stats"
+          body="Standings, highlights, all-time totals, head-to-head."
+        />
       </div>
     </div>
   );
@@ -107,22 +95,51 @@ export default function Home() {
 
 function HallOfFame({ rows }) {
   return (
-    <section className="card" style={{ marginBottom: 16 }}>
+    <section className="card home-hof">
       <div className="row" style={{ marginBottom: 12, alignItems: 'baseline', gap: 8 }}>
         <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Hall of Fame</h2>
-        <span className="dim" style={{ fontSize: 13 }}>Playoff champions by season</span>
+        <span className="dim" style={{ fontSize: 13 }}>
+          Playoff champions by season
+        </span>
       </div>
       <div className="scroll-x">
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '8px 10px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-dim)' }}>
+              <th
+                style={{
+                  textAlign: 'left',
+                  padding: '8px 10px',
+                  fontSize: 11,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: 'var(--color-text-dim)',
+                }}
+              >
                 Season
               </th>
-              <th style={{ textAlign: 'left', padding: '8px 10px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-dim)' }}>
+              <th
+                style={{
+                  textAlign: 'left',
+                  padding: '8px 10px',
+                  fontSize: 11,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: 'var(--color-text-dim)',
+                }}
+              >
                 Champion
               </th>
-              <th style={{ textAlign: 'left', padding: '8px 10px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-dim)' }}>
+              <th
+                style={{
+                  textAlign: 'left',
+                  padding: '8px 10px',
+                  fontSize: 11,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: 'var(--color-text-dim)',
+                }}
+              >
                 Runner-up
               </th>
             </tr>
@@ -130,11 +147,19 @@ function HallOfFame({ rows }) {
           <tbody>
             {rows.map((r) => (
               <tr key={r.season} style={{ borderTop: '1px solid var(--color-border)' }}>
-                <td style={{ padding: '12px 10px', fontWeight: 700, whiteSpace: 'nowrap' }}>{r.season}</td>
+                <td style={{ padding: '12px 10px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  {r.season}
+                </td>
                 <td style={{ padding: '12px 10px' }}>
                   <div className="row" style={{ gap: 10, alignItems: 'center' }}>
                     {r.champion.avatar ? (
-                      <img src={r.champion.avatar} alt="" width="28" height="28" style={{ borderRadius: '50%' }} />
+                      <img
+                        src={r.champion.avatar}
+                        alt=""
+                        width="28"
+                        height="28"
+                        style={{ borderRadius: '50%' }}
+                      />
                     ) : (
                       <span style={{ width: 28, height: 28, display: 'inline-block' }} />
                     )}
@@ -147,11 +172,21 @@ function HallOfFame({ rows }) {
                   {r.runnerUp ? (
                     <div className="row" style={{ gap: 10, alignItems: 'center' }}>
                       {r.runnerUp.avatar ? (
-                        <img src={r.runnerUp.avatar} alt="" width="28" height="28" style={{ borderRadius: '50%' }} />
+                        <img
+                          src={r.runnerUp.avatar}
+                          alt=""
+                          width="28"
+                          height="28"
+                          style={{ borderRadius: '50%' }}
+                        />
                       ) : (
                         <span style={{ width: 28, height: 28, display: 'inline-block' }} />
                       )}
-                      <span className="truncate muted" style={{ maxWidth: 160 }} title={r.runnerUp.name}>
+                      <span
+                        className="truncate muted"
+                        style={{ maxWidth: 160 }}
+                        title={r.runnerUp.name}
+                      >
                         {r.runnerUp.name}
                       </span>
                     </div>
@@ -173,97 +208,102 @@ function NoConfig() {
     <div className="card">
       <h3>League id not set</h3>
       <p className="muted">
-        Set <code>VITE_SLEEPER_LEAGUE_ID</code> in <code>.env</code> (locally) or in your Vercel
-        project settings, then redeploy.
+        Set <code>VITE_SLEEPER_LEAGUE_ID</code> in <code>.env</code> (locally) or in your Vercel project
+        settings, then redeploy.
       </p>
       <p className="dim">
         You can find your league id in the URL when you view your league on{' '}
-        <a href="https://sleeper.app/" target="_blank" rel="noreferrer">sleeper.app</a>.
+        <a href="https://sleeper.app/" target="_blank" rel="noreferrer">
+          sleeper.app
+        </a>
+        .
       </p>
     </div>
   );
 }
 
-function LoadingCard() {
+function FeatureLink({ to, icon: Icon, title, body }) {
   return (
-    <div className="card" aria-busy="true">
-      <div className="skeleton" style={{ height: 22, width: '50%', marginBottom: 12 }} />
-      <div className="skeleton" style={{ height: 16, width: '80%', marginBottom: 8 }} />
-      <div className="skeleton" style={{ height: 16, width: '70%' }} />
-    </div>
-  );
-}
-
-function Standings({ league, users, rosters }) {
-  const userById = Object.fromEntries(users.map((u) => [u.user_id, u]));
-  const rows = rosters
-    .map((r) => {
-      const user = userById[r.owner_id];
-      const wins = r.settings?.wins ?? 0;
-      const losses = r.settings?.losses ?? 0;
-      const ties = r.settings?.ties ?? 0;
-      const fpts = (r.settings?.fpts ?? 0) + (r.settings?.fpts_decimal ?? 0) / 100;
-      return {
-        rosterId: r.roster_id,
-        team:
-          user?.metadata?.team_name ||
-          user?.display_name ||
-          `Team ${r.roster_id}`,
-        avatar: user?.avatar ? avatarUrl(user.avatar, true) : null,
-        wins,
-        losses,
-        ties,
-        fpts,
-      };
-    })
-    .sort((a, b) => b.wins - a.wins || b.fpts - a.fpts);
-
-  return (
-    <div className="card">
-      <div className="row" style={{ marginBottom: 12 }}>
-        <h3 style={{ margin: 0 }}>Standings</h3>
-        <span className="dim" style={{ marginLeft: 'auto' }}>{league.season} · {league.status.replace('_', ' ')}</span>
-      </div>
-      <div className="scroll-x">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Team</th>
-              <th>W-L-T</th>
-              <th>PF</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={row.rosterId}>
-                <td>{i + 1}</td>
-                <td>
-                  <div className="row" style={{ gap: 10 }}>
-                    {row.avatar ? (
-                      <img src={row.avatar} alt="" width="22" height="22" style={{ borderRadius: '50%' }} />
-                    ) : (
-                      <span style={{ width: 22, height: 22, display: 'inline-block' }} />
-                    )}
-                    <span className="truncate" style={{ maxWidth: 180 }}>{row.team}</span>
-                  </div>
-                </td>
-                <td>{row.wins}-{row.losses}{row.ties ? `-${row.ties}` : ''}</td>
-                <td>{row.fpts.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function FeatureLink({ to, title, body }) {
-  return (
-    <Link to={to} className="card" style={{ display: 'block', color: 'inherit' }}>
-      <h3 style={{ margin: '0 0 6px' }}>{title}</h3>
-      <p className="muted" style={{ margin: 0 }}>{body}</p>
+    <Link to={to} className="home-feature">
+      <span className="home-feature__icon" aria-hidden="true">
+        <Icon />
+      </span>
+      <span className="home-feature__text">
+        <span className="home-feature__title">{title}</span>
+        <span className="home-feature__body">{body}</span>
+      </span>
+      <svg
+        className="home-feature__arrow"
+        viewBox="0 0 24 24"
+        width="20"
+        height="20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <polyline points="9 6 15 12 9 18" />
+      </svg>
     </Link>
+  );
+}
+
+function KeeperIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3l2.4 4.9L20 9.3l-4 3.9.9 5.6L12 16.9 7.1 18.8 8 13.2 4 9.3l5.6-1.4L12 3z" />
+    </svg>
+  );
+}
+
+function RulesIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 4h9l4 4v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+      <path d="M14 4v5h5" />
+      <path d="M9 14h6" />
+      <path d="M9 18h4" />
+    </svg>
+  );
+}
+
+function StatsIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 3v18h18" />
+      <path d="M7 15l4-4 3 3 5-6" />
+    </svg>
   );
 }

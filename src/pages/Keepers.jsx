@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { areKeeperNominationsHiddenInUi, config } from '../config.js';
+import { useAuth } from '../AuthContext.jsx';
 import {
   resolveLeagueHistoryChain,
   fetchUsers,
@@ -24,9 +25,9 @@ function formatRevealLabel(isoRaw) {
 
 function fmtNominationRow(n, lookup) {
   if (n.nomination_kind === 'freeform') {
-    return [n.k1_text, n.k2_text, n.k3_text].join(' · ');
+    return [n.k1_text, n.k2_text, n.k3_text].filter(Boolean).join(' · ');
   }
-  const ids = [n.k1_player_id, n.k2_player_id, n.k3_player_id];
+  const ids = [n.k1_player_id, n.k2_player_id, n.k3_player_id].filter(Boolean);
   if (!lookup) return ids.join(' · ');
   return ids
     .map((id) => {
@@ -37,12 +38,17 @@ function fmtNominationRow(n, lookup) {
 }
 
 export default function Keepers() {
+  const { user: authUser } = useAuth();
+  const lockedSleeperUserId =
+    authUser && authUser.role !== 'commissioner' && typeof authUser.sleeperUserId === 'string'
+      ? authUser.sleeperUserId
+      : null;
+
   const [chain, setChain] = useState([]);
   const [chainLoading, setChainLoading] = useState(true);
   const [lookup, setLookup] = useState(null);
   const [lookupErr, setLookupErr] = useState(null);
 
-  const [mode, setMode] = useState('roster');
   const [seasonLeagueId, setSeasonLeagueId] = useState('');
   const [seasonLabel, setSeasonLabel] = useState('');
   const [users, setUsers] = useState([]);
@@ -53,13 +59,10 @@ export default function Keepers() {
   const [k1, setK1] = useState('');
   const [k2, setK2] = useState('');
   const [k3, setK3] = useState('');
-  const [t1, setT1] = useState('');
-  const [t2, setT2] = useState('');
-  const [t3, setT3] = useState('');
 
   const [nameByUserId, setNameByUserId] = useState({});
   const [nominations, setNominations] = useState([]);
-  const [listLoading, setListLoading] = useState(() => !areKeeperNominationsHiddenInUi());
+  const [listLoading, setListLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [formMsg, setFormMsg] = useState(null);
   const [formErr, setFormErr] = useState(null);
@@ -128,12 +131,9 @@ export default function Keepers() {
     };
   }, []);
 
+  // Always fetch — even when the league table is gated by the reveal date,
+  // we still need the data to show the manager their own most recent picks.
   const loadNominations = useCallback(async () => {
-    if (areKeeperNominationsHiddenInUi()) {
-      setNominations([]);
-      setListLoading(false);
-      return;
-    }
     setListLoading(true);
     try {
       const res = await fetch('/api/keeper-nominations', { credentials: 'include' });
@@ -150,6 +150,12 @@ export default function Keepers() {
   useEffect(() => {
     loadNominations();
   }, [loadNominations]);
+
+  useEffect(() => {
+    if (lockedSleeperUserId && sleeperUserId !== lockedSleeperUserId) {
+      setSleeperUserId(lockedSleeperUserId);
+    }
+  }, [lockedSleeperUserId, sleeperUserId]);
 
   useEffect(() => {
     if (!seasonLeagueId) {
@@ -181,12 +187,29 @@ export default function Keepers() {
   }, [seasonLeagueId]);
 
   const userOptions = useMemo(() => {
-    return [...users].sort((a, b) => {
+    const sorted = [...users].sort((a, b) => {
       const na = (a.metadata?.team_name || a.display_name || a.user_id || '').toLowerCase();
       const nb = (b.metadata?.team_name || b.display_name || b.user_id || '').toLowerCase();
       return na.localeCompare(nb);
     });
-  }, [users]);
+    if (!lockedSleeperUserId) return sorted;
+    const mine = sorted.find((u) => u.user_id === lockedSleeperUserId);
+    return mine ? [mine] : sorted;
+  }, [users, lockedSleeperUserId]);
+
+  const myNominations = useMemo(() => {
+    if (!sleeperUserId) return [];
+    return nominations.filter((n) => n.sleeper_user_id === sleeperUserId);
+  }, [nominations, sleeperUserId]);
+
+  const myLatestForSeason = useMemo(() => {
+    if (!seasonLabel) return null;
+    return myNominations.find((n) => n.source_season === seasonLabel) || null;
+  }, [myNominations, seasonLabel]);
+
+  const myLatestAny = useMemo(() => myNominations[0] || null, [myNominations]);
+
+  const myLatest = myLatestForSeason || myLatestAny;
 
   const rosterPickOptions = useMemo(() => {
     if (!sleeperUserId || !rosters.length) return [];
@@ -211,7 +234,21 @@ export default function Keepers() {
       return;
     }
     if (!seasonLabel) {
-      setFormErr('Choose which season this nomination is for.');
+      setFormErr('League season is still loading — wait a moment and try again.');
+      return;
+    }
+
+    if (!k1) {
+      setFormErr('Keeper 1 (guaranteed) is required — pick a player from your roster.');
+      return;
+    }
+    const wantsExtras = Boolean(k2) || Boolean(k3);
+    if (wantsExtras && (!k2 || !k3)) {
+      setFormErr('To nominate a second keeper you must enter BOTH keeper 2 and 3 — one is randomised.');
+      return;
+    }
+    if (k2 && k3 && new Set([k1, k2, k3]).size !== 3) {
+      setFormErr('Pick three different players.');
       return;
     }
 
@@ -219,33 +256,11 @@ export default function Keepers() {
       sleeper_user_id: sleeperUserId,
       source_season: seasonLabel,
       league_id_snapshot: seasonLeagueId || null,
-      nomination_kind: mode,
+      nomination_kind: 'roster',
+      k1_player_id: k1,
+      k2_player_id: k2 || null,
+      k3_player_id: k3 || null,
     };
-
-    if (mode === 'roster') {
-      if (!k1 || !k2 || !k3) {
-        setFormErr('Pick all three keepers from your roster.');
-        return;
-      }
-      if (new Set([k1, k2, k3]).size !== 3) {
-        setFormErr('Pick three different players.');
-        return;
-      }
-      body.k1_player_id = k1;
-      body.k2_player_id = k2;
-      body.k3_player_id = k3;
-    } else {
-      const a = t1.trim();
-      const b = t2.trim();
-      const c = t3.trim();
-      if (a.length < 2 || b.length < 2 || c.length < 2) {
-        setFormErr('Enter all three keeper names (freeform).');
-        return;
-      }
-      body.k1_text = a;
-      body.k2_text = b;
-      body.k3_text = c;
-    }
 
     setSubmitting(true);
     try {
@@ -283,11 +298,41 @@ export default function Keepers() {
       <header className="page-header">
         <span className="eyebrow">Off-season</span>
         <h1>Keeper nominations</h1>
-        <p className="muted">
-          Log <strong>three</strong> keepers per manager per season. #1 is your lock; #2 and #3 are for your league’s
-          random rules — this page only stores what everyone picked so the commissioner can see it.
-        </p>
       </header>
+
+      <details className="keepers-help">
+        <summary className="keepers-help__summary">
+          <span className="keepers-help__icon" aria-hidden="true">?</span>
+          <span className="keepers-help__label">Keeper Rules</span>
+          <span className="keepers-help__hint">How keepers work</span>
+          <svg
+            className="keepers-help__chevron"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </summary>
+        <div className="keepers-help__body">
+          <p className="muted">
+            <strong>Keeper 1 is your guaranteed pick.</strong> If you want a second keeper, you must nominate{' '}
+            <strong>both</strong> keeper 2 <em>and</em> keeper 3 — we will have a coin flipping ceremony to decide who
+            you get to keep. Picking just one keeper is fine; picking exactly two is not allowed. 
+          </p>
+          <p className="muted">
+          You will lose the draft
+            pick in the upcoming draft wherever your keeper was picked last season. E.g. Gabe Nabers was drafted in the
+            3rd, meaning Georgia will lose that pick because she will obviously be keeping this <strong>ELITE</strong> player.
+          </p>
+        </div>
+      </details>
 
       {lookupErr && (
         <p className="keepers-warn" role="status">
@@ -301,49 +346,62 @@ export default function Keepers() {
         </div>
       )}
 
-      <div className="keepers-segment" role="group" aria-label="How to enter keepers">
-        <button
-          type="button"
-          className={'keepers-segment__btn' + (mode === 'roster' ? ' keepers-segment__btn--active' : '')}
-          onClick={() => setMode('roster')}
-        >
-          From Sleeper roster
-        </button>
-        <button
-          type="button"
-          className={'keepers-segment__btn' + (mode === 'freeform' ? ' keepers-segment__btn--active' : '')}
-          onClick={() => setMode('freeform')}
-        >
-          Quick text (3 lines)
-        </button>
-      </div>
+      {sleeperUserId && !listLoading && (
+        <section className="card keepers-mine-card" aria-live="polite">
+          <p className="keepers-mine-eyebrow">Your last submitted picks</p>
+          {!myLatest && (
+            <p className="keepers-mine-empty">
+              You haven’t submitted any keeper nominations yet. Use the form below to lock in keeper 1 (and optionally
+              keepers 2 + 3 for the randomiser).
+            </p>
+          )}
+          {myLatest && (
+            <>
+              {!myLatestForSeason && (
+                <p className="keepers-mine-note">
+                  No picks for <strong>{seasonLabel || 'the selected season'}</strong> yet — showing your most recent
+                  submission for <strong>{myLatest.source_season}</strong>.
+                </p>
+              )}
+              <p className="keepers-mine-picks">{fmtNominationRow(myLatest, lookup)}</p>
+              <p className="keepers-mine-meta">
+                <span className="keepers-type-pill">
+                  {myLatest.nomination_kind}
+                </span>
+                <span>Season {myLatest.source_season}</span>
+                <span>
+                  Saved{' '}
+                  {myLatest.updated_at ? new Date(myLatest.updated_at).toLocaleString() : '—'}
+                </span>
+              </p>
+            </>
+          )}
+        </section>
+      )}
 
       <form className="card keepers-form keepers-form-card" onSubmit={onSubmit}>
-        <label>
-          <span className="keepers-label">Season this nomination applies to</span>
-          <select
-            value={seasonLeagueId}
-            disabled={chainLoading || !chain.length}
-            onChange={(e) => {
-              const id = e.target.value;
-              setSeasonLeagueId(id);
-              const row = chain.find((c) => c.leagueId === id);
-              setSeasonLabel(row ? String(row.season) : '');
-            }}
-          >
-            {chain.map((c) => (
-              <option key={c.leagueId} value={c.leagueId}>
-                {c.season} roster ({c.name || c.leagueId})
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="keepers-locked-season">
+          <span className="keepers-label">Keepers carry into</span>
+          {chainLoading || !chain[0] ? (
+            <span className="keepers-locked-season__value muted">Loading league season…</span>
+          ) : (
+            <>
+              <span className="keepers-locked-season__value">
+                {Number(chain[0].season) + 1} season
+              </span>
+              <span className="keepers-locked-season__sub">
+                Picked from your <strong>{chain[0].season}</strong> roster
+                {chain[0].name ? ` · ${chain[0].name}` : ''}
+              </span>
+            </>
+          )}
+        </div>
 
         <label>
           <span className="keepers-label">You are (Sleeper manager)</span>
           <select
             value={sleeperUserId}
-            disabled={leagueLoading || !userOptions.length}
+            disabled={leagueLoading || !userOptions.length || Boolean(lockedSleeperUserId)}
             onChange={(e) => setSleeperUserId(e.target.value)}
             required
           >
@@ -354,69 +412,58 @@ export default function Keepers() {
               </option>
             ))}
           </select>
+          {lockedSleeperUserId && (
+            <p className="keepers-hint keepers-hint--inline">
+              You can only nominate keepers for your own team.
+            </p>
+          )}
+          {lockedSleeperUserId && !leagueLoading && users.length > 0 && !users.some((u) => u.user_id === lockedSleeperUserId) && (
+            <p className="keepers-warn">
+              Your account isn’t in this season’s roster. Pick a different season or ask the commissioner to check your
+              Sleeper id.
+            </p>
+          )}
         </label>
 
-        {mode === 'roster' && (
-          <>
-            <p className="keepers-hint">
-              Keeper 1 = guaranteed. Pick from the roster for the season above (first load may take a few seconds while
-              player names download from Sleeper).
-            </p>
-            <label>
-              <span className="keepers-label">Keeper 1 (guaranteed)</span>
-              <select value={k1} onChange={(e) => setK1(e.target.value)} required disabled={!rosterPickOptions.length}>
-                <option value="">Select player…</option>
-                {rosterPickOptions.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span className="keepers-label">Keeper 2</span>
-              <select value={k2} onChange={(e) => setK2(e.target.value)} required disabled={!rosterPickOptions.length}>
-                <option value="">Select player…</option>
-                {rosterPickOptions.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span className="keepers-label">Keeper 3</span>
-              <select value={k3} onChange={(e) => setK3(e.target.value)} required disabled={!rosterPickOptions.length}>
-                <option value="">Select player…</option>
-                {rosterPickOptions.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {!sleeperUserId && <p className="keepers-hint keepers-hint--inline">Select yourself first to load your roster.</p>}
-            {sleeperUserId && !leagueLoading && rosterPickOptions.length === 0 && (
-              <p className="keepers-warn">No players found on your roster for this league/season.</p>
-            )}
-          </>
-        )}
-
-        {mode === 'freeform' && (
-          <>
-            <label>
-              <span className="keepers-label">Keeper 1 (guaranteed)</span>
-              <input value={t1} onChange={(e) => setT1(e.target.value)} maxLength={160} placeholder="e.g. Ja'Marr Chase" />
-            </label>
-            <label>
-              <span className="keepers-label">Keeper 2</span>
-              <input value={t2} onChange={(e) => setT2(e.target.value)} maxLength={160} />
-            </label>
-            <label>
-              <span className="keepers-label">Keeper 3</span>
-              <input value={t3} onChange={(e) => setT3(e.target.value)} maxLength={160} />
-            </label>
-          </>
+        <p className="keepers-hint">
+          First load may take a few seconds while player names download from Sleeper.
+        </p>
+        <label>
+          <span className="keepers-label">Keeper 1 (guaranteed)</span>
+          <select value={k1} onChange={(e) => setK1(e.target.value)} required disabled={!rosterPickOptions.length}>
+            <option value="">Select player…</option>
+            {rosterPickOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span className="keepers-label">Keeper 2 (optional, randomised)</span>
+          <select value={k2} onChange={(e) => setK2(e.target.value)} disabled={!rosterPickOptions.length}>
+            <option value="">— skip (no second keeper) —</option>
+            {rosterPickOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span className="keepers-label">Keeper 3 (optional, randomised)</span>
+          <select value={k3} onChange={(e) => setK3(e.target.value)} disabled={!rosterPickOptions.length}>
+            <option value="">— skip (no second keeper) —</option>
+            {rosterPickOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {!sleeperUserId && <p className="keepers-hint keepers-hint--inline">Select yourself first to load your roster.</p>}
+        {sleeperUserId && !leagueLoading && rosterPickOptions.length === 0 && (
+          <p className="keepers-warn">No players found on your roster for this league/season.</p>
         )}
 
         {formErr && <p className="keepers-err">{formErr}</p>}

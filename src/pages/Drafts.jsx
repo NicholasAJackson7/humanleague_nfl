@@ -108,7 +108,7 @@ export default function Drafts() {
       <header className="page-header">
         <span className="eyebrow">League history</span>
         <h1>Draft boards</h1>
-        <p className="muted">Columns follow draft slot (round 1 order). Rows are rounds — classic war-room grid.</p>
+        <p className="muted">Columns follow draft slot (round 1 order). Rows are rounds.</p>
       </header>
 
       {loadingChain && <div className="skeleton" style={{ height: 44, maxWidth: 420 }} />}
