@@ -526,7 +526,7 @@ function PlayoffSection({ playoff, season }) {
 }
 
 function CareerTable({ career, seasonCount }) {
-  const { rows } = career;
+  const { rows, latestChampionUserId } = career;
   if (!rows.length) {
     return <p className="muted">No manager rows could be built from the loaded seasons.</p>;
   }
@@ -541,6 +541,7 @@ function CareerTable({ career, seasonCount }) {
             <tr>
               <th>#</th>
               <th>Manager</th>
+              <th title="Championships won across linked seasons">Titles</th>
               <th>W-L-T</th>
               <th>Career PF</th>
               <th>Career PA</th>
@@ -552,7 +553,9 @@ function CareerTable({ career, seasonCount }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
+            {rows.map((r, i) => {
+              const isReigning = !!latestChampionUserId && r.userId === latestChampionUserId;
+              return (
               <tr key={r.userId}>
                 <td>{i + 1}</td>
                 <td>
@@ -568,10 +571,25 @@ function CareerTable({ career, seasonCount }) {
                     ) : (
                       <span style={{ width: 22, height: 22, display: 'inline-block' }} />
                     )}
-                    <span className="truncate" style={{ maxWidth: 160 }} title={r.userId}>
-                      {r.displayName}
-                    </span>
+                    {isReigning ? (
+                      <span
+                        className="manager-on-fire"
+                        title={`${r.userId} · reigning champion`}
+                      >
+                        {r.displayName}
+                      </span>
+                    ) : (
+                      <span className="truncate" style={{ maxWidth: 160 }} title={r.userId}>
+                        {r.displayName}
+                      </span>
+                    )}
                   </div>
+                </td>
+                <td
+                  className={r.championships > 0 ? '' : 'muted'}
+                  style={{ fontWeight: r.championships > 0 ? 650 : 400 }}
+                >
+                  {r.championships > 0 ? r.championships : '—'}
                 </td>
                 <td>
                   {r.wins}-{r.losses}
@@ -595,7 +613,8 @@ function CareerTable({ career, seasonCount }) {
                   {r.seasonsLabel}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

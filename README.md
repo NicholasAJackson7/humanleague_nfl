@@ -2,12 +2,12 @@
 
 A mobile-first Vite + React app for a Sleeper fantasy football league.
 
-- `/` — League standings snapshot
-- `/stats` — Previous-season recap (highs, lows, blowouts, bench points, consistency)
-- `/wheel` — Spin-the-wheel keeper picker (weighted, with history)
+- `/` — Full-page hero, Hall of Fame, and quick links into Keepers / Rules / Stats
+- `/stats` — Combined league analytics in collapsible sections: All-Time Standings, Latest Season Standings, Playoffs, Head-to-Head records (the legacy `/h2h` URL redirects here)
 - `/drafts` — **Draft board** per linked season: teams as columns, rounds as rows (Sleeper picks + `draft_order`)
-- `/rules` — Rule suggestions, voting, and **per-rule discussion** threads
-- `/keepers` — Manager keeper nominations (roster picks from a past season or freeform text; stored in Postgres for the commissioner). Optional `VITE_KEEPERS_REVEAL_AT` (ISO 8601) hides the **All nominations** table until that time; the API still returns data if called directly, so treat this as a league courtesy, not a secret lock.
+- `/rules` — Rule suggestions, voting, and **per-rule discussion** threads. One vote and one suggestion per logged-in account; the suggester is implied from the account, no free-text name field.
+- `/keepers` — Manager keeper nominations from your Sleeper roster (logged-in managers can only nominate for their own team; commissioners can edit on anyone's behalf). Rule: keeper 1 is guaranteed; if you want a second keeper, you must pick both keeper 2 and keeper 3 — one is randomised at the league ceremony. Optional `VITE_KEEPERS_REVEAL_AT` (ISO 8601) hides the **All nominations** table until that time; your own latest pick is always visible to you. The API still returns data if called directly, so treat this as a league courtesy, not a secret lock.
+- `/wheel` — Spin-the-wheel keeper picker (weighted, with history). Not in the main nav; reach it via direct URL.
 
 Hosted on Vercel. Voting state lives in Neon Postgres (free tier). Sleeper data is read from the public Sleeper API.
 
@@ -69,13 +69,27 @@ First-time Vercel CLI may ask you to log in and link the project; that is normal
 
 ## Database setup (Neon)
 
+### First-time setup
+
 Run `db/schema.sql` once against your Neon database. Easiest path:
 
 1. Open the Neon dashboard for the project that the Vercel integration provisioned.
 2. Open the SQL editor.
 3. Paste the contents of `db/schema.sql` and run it.
 
-The script is idempotent, so re-running it is safe.
+The script is idempotent, so re-running it is safe — but note that `create table if not exists` skips tables that already exist, so it does **not** apply changes to live tables (use migrations for that).
+
+### Applying schema changes (migrations)
+
+Schema changes after the initial setup live under `db/migrations/`. Apply one with:
+
+```bash
+npm run db:migrate -- db/migrations/0001_user_votes.sql
+```
+
+This runs the SQL against whichever database `DATABASE_URL` points at in `.env.local` — the same one your local dev server uses, so there's no risk of running it on the wrong Neon branch. The script is also safe to run from CI against your production `DATABASE_URL` if you prefer.
+
+Each migration file is wrapped in a transaction so it's all-or-nothing.
 
 ## Deployment to Vercel
 
@@ -87,10 +101,10 @@ The script is idempotent, so re-running it is safe.
    - Optional **site login** (shared password for everyone in the league): set `SITE_PASSWORD` to a passphrase and `AUTH_SECRET` to a long random string (at least 16 characters). If either is missing or `AUTH_SECRET` is too short, login is disabled and the app stays public. Add both to Production (and Preview if you use preview deploys).
    - Optional **per-member logins** (after `app_users` exists in `db/schema.sql`): set **`APP_USERS_ENABLED`** to `1`, `true`, or `yes` on **Production** (and Preview if you use it), alongside **`DATABASE_URL`** and **`AUTH_SECRET`** (at least 16 characters). Without all three, the app stays public and there is no sign-in gate. Create rows with `npm run create-user -- <username> <password> [sleeper_user_id]` (requires Node 20+ for `--env-file` in the script). You can use member accounts only, shared password only, or both; the sign-in page adapts.
 5. Apply the schema: Neon dashboard → SQL editor → paste `db/schema.sql` → run.  
-   If you already ran an older `schema.sql`, run it again (it is idempotent) so new tables such as **`rule_posts`** exist for per-rule discussions.
+   `schema.sql` is idempotent for **new** tables, so re-running picks up any tables that didn't exist before (e.g. `rule_posts`, `app_users`). It does **not** alter existing tables — for those, apply the relevant file from `db/migrations/` instead. The safest path is `npm run db:migrate -- db/migrations/<file>.sql` from a machine whose `.env.local` points at the same DB you're targeting (see "Applying schema changes" above).
 6. Trigger a deploy. Visit your `*.vercel.app` URL.
 7. Sanity check:
-   - `/api/rules` should return `{ "rules": [] }`.
+   - `/api/rules` should return `{ "rules": [...] }` (or `[]` on a fresh DB).
    - `/stats` should populate after a few seconds.
 
 ## File layout
@@ -105,29 +119,42 @@ api/                Vercel serverless functions (Node 18, ESM)
   auth/me.js          session status + optional `user` for member sessions
   auth/login.js       POST username/password or shared password → Set-Cookie
   auth/logout.js      clear session cookie
-  rules.js            GET, POST (includes `post_count` per rule)
-  votes.js            POST, DELETE
+  rules.js            GET (with `my_vote` per rule), POST — author is the logged-in user
+  votes.js            POST, DELETE — keyed to the logged-in `app_users.id`
   rule-posts.js       GET, POST, DELETE — forum messages under a rule
-  keeper-nominations.js  GET, POST — manager keeper slots (roster or freeform)
+  keeper-nominations.js  GET, POST — Sleeper-roster keeper picks; managers can only edit their own
 db/
-  schema.sql          one-time database setup
+  schema.sql          first-time database setup (idempotent)
+  migrations/         additive schema changes; apply with `npm run db:migrate -- <file>`
+    0001_user_votes.sql  switch votes from browser tokens to user_id
 public/
   manifest.webmanifest
+  img/                static images served at /img/* (winner photo, etc.)
   icons/              192/512/maskable SVG icons
+scripts/
+  create-user.mjs        insert a row into app_users
+  hash-password.mjs      generate scrypt hashes
+  run-migration.mjs      apply a SQL file via `npm run db:migrate`
+  verify-database-url.mjs sanity check the DATABASE_URL connection
 src/
   main.jsx
   App.jsx             routing + lazy-loaded pages
+  AuthContext.jsx     session state for the React tree
   config.js           reads VITE_SLEEPER_LEAGUE_ID
   lib/
     sleeper.js        Sleeper API helpers + previous-season walker + drafts
     stats.js          pure functions for derived stats
+    h2h.js            head-to-head record helpers
+    hallOfFame.js     past champions (homepage)
     drafts.js         draft board helpers (uses `buildTeams` for picker names)
-    voter.js          voter token + my-votes localStorage
-  pages/              Home, Stats, Wheel, Drafts, Rules, Keepers, HeadToHead
+    voter.js          anonymous browser token used for rule-discussion posts
+                      (votes themselves now use the logged-in account)
+  pages/              Home, Stats, Wheel, Drafts, Rules, Keepers, Login
   components/         Nav, BottomSheet, Wheel, RuleCard, RuleDiscussionSheet
   styles/             tokens.css, globals.css
 index.html
-vercel.json           SPA rewrites (everything except /api -> index.html)
+vercel.json           SPA rewrites (everything except /api, /assets, /icons,
+                      /img, /src, /favicon.svg, /manifest.webmanifest -> /index.html)
 vite.config.js
 ```
 
@@ -143,19 +170,22 @@ vite.config.js
 
 ## Voting model
 
-- Each browser generates a random `voter_token` (UUID) on first vote, stored in `localStorage`.
-- Votes are upserted on `(rule_id, voter_token)` so toggling, switching, or removing a vote is idempotent.
-- The Vercel function adds a best-effort per-IP rate limit per function instance (cold-start aware, fine for a small league).
+- Voting requires a logged-in member account (`app_users`). Site-password-only sessions can read the rules but cannot vote or suggest.
+- The `votes` table is keyed on `(rule_id, user_id)` where `user_id` is the caller's `app_users.id` — so each manager gets exactly one vote per rule, regardless of browser, device, or session.
+- Toggling, switching, or removing a vote is idempotent (server upserts on the primary key; DELETE removes the row).
+- `GET /api/rules` returns each row's `my_vote` for the caller (`1`, `-1`, or `0`) so the UI hydrates the correct up/down arrow state on first load.
+- Suggesting a rule is also account-gated; the `author` column is set server-side from `app_users.username` and the client cannot override it.
+- A best-effort per-(user_id × IP) rate limit is applied on each Vercel function instance.
 
 ## Rule discussions
 
 - Each rule has a linear thread in `rule_posts` (oldest first in the UI).
-- The same browser token used for voting (`voter:token` / `getVoterToken()`) is sent as `poster_token` when posting; the API never exposes other users’ tokens. Pass `X-Poster-Token` on `GET /api/rule-posts` so responses include `mine: true` on your own messages (for **Delete**).
+- Discussion posts still use an anonymous browser token (`voter:token` / `getVoterToken()`), separate from the user-ID-based vote dedup. The token is sent as `poster_token` when posting; the API never exposes other users' tokens. Pass `X-Poster-Token` on `GET /api/rule-posts` so responses include `mine: true` on your own messages (for **Delete**).
 - Deleting a post requires the same `poster_token` that created it.
 
 ## Out of scope (v1)
 
-- Per-user accounts or OAuth (only optional shared site password + HttpOnly cookie)
+- OAuth / SSO (member accounts use scrypt-hashed passwords stored in `app_users`; shared site password is also supported)
 - Server-side caching of Sleeper data
 - Real-time vote updates (refetch on action)
 - Optimal-lineup analysis (would require fetching the full Sleeper player database)

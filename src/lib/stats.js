@@ -322,6 +322,7 @@ function summarizeWinnersBracket(bracket, teamsByRoster, league) {
       championName: fromMetaOnly
         ? teamLabel(teamsByRoster, fromMetaOnly)
         : null,
+      championRosterId: fromMetaOnly ?? null,
       decisiveMatches: [],
     };
   }
@@ -378,7 +379,11 @@ function summarizeWinnersBracket(bracket, teamsByRoster, league) {
     championRosterId != null
       ? teamLabel(teamsByRoster, championRosterId)
       : null;
-  return { championName, decisiveMatches: decisive };
+  return {
+    championName,
+    championRosterId: championRosterId ?? null,
+    decisiveMatches: decisive,
+  };
 }
 
 export function computeStats(bundle) {
@@ -497,6 +502,8 @@ export function computeCareerByUser(seasonStats) {
 
   /** @type {Record<string, any>} */
   const byUser = {};
+  // First user we see win in the newest-first walk = current reigning champion.
+  let latestChampionUserId = null;
 
   for (const { season, stats } of sortedNewestFirst) {
     const seasonKey = String(season);
@@ -517,6 +524,7 @@ export function computeCareerByUser(seasonStats) {
           wins: 0,
           losses: 0,
           ties: 0,
+          championships: 0,
           careerPf: 0,
           careerPa: 0,
           gamesPlayed: 0,
@@ -535,6 +543,16 @@ export function computeCareerByUser(seasonStats) {
       u.ties += t.ties;
       u.careerPf += t.fpts;
       u.careerPa += t.fptsAgainst;
+    }
+
+    // Tally championship for the season's bracket winner (if known).
+    const champRosterId = stats.playoff?.bracket?.championRosterId;
+    if (champRosterId != null) {
+      const champOwnerId = rosterToOwner[champRosterId];
+      if (champOwnerId && byUser[champOwnerId]) {
+        byUser[champOwnerId].championships += 1;
+        if (latestChampionUserId == null) latestChampionUserId = champOwnerId;
+      }
     }
 
     for (const a of stats.aggregates) {
@@ -572,6 +590,7 @@ export function computeCareerByUser(seasonStats) {
         wins: u.wins,
         losses: u.losses,
         ties: u.ties,
+        championships: u.championships,
         careerPf: round2(u.careerPf),
         careerPa: round2(u.careerPa),
         gamesPlayed: u.gamesPlayed,
@@ -583,5 +602,5 @@ export function computeCareerByUser(seasonStats) {
     })
     .sort((a, b) => b.careerPf - a.careerPf);
 
-  return { rows, seasons };
+  return { rows, seasons, latestChampionUserId };
 }
