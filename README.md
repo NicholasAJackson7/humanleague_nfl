@@ -30,7 +30,7 @@ Hosted on Vercel. Voting state lives in Neon Postgres (free tier). Sleeper data 
 
 ```bash
 npm install
-cp .env.example .env
+cp .env.example .envff
 ```
 
 Edit `.env`:
