@@ -1,0 +1,12 @@
+# Code owners for the humanleague_nfl repo.
+#
+# In combination with the "Require review from Code Owners" branch protection
+# setting on `main`, this means PRs cannot be merged into main without an
+# approval from one of the users listed below — even if other collaborators
+# click "Approve".
+#
+# Syntax: <pattern>  <github-username...>
+# (left-most match wins; later rules override earlier ones)
+
+# Default owner for everything in the repo.
+*  @NicholasAJackson
