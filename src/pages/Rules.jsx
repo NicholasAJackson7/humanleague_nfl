@@ -2,16 +2,32 @@ import React, { useCallback, useEffect, useState } from 'react';
 import RuleCard from '../components/RuleCard.jsx';
 import BottomSheet from '../components/BottomSheet.jsx';
 import RuleDiscussionSheet from '../components/RuleDiscussionSheet.jsx';
-import { getVoterToken, loadMyVotes, saveMyVote } from '../lib/voter.js';
+import { useAuth } from '../AuthContext.jsx';
 
 export default function Rules() {
+  const auth = useAuth();
+  // Voting now requires a real member account (not just the shared site
+  // password). Dev-bypass falls back to read-only.
+  const canVote = Boolean(auth?.user?.username);
+
   const [rules, setRules] = useState(null);
   const [error, setError] = useState(null);
   const [showSheet, setShowSheet] = useState(false);
   const [discussionRule, setDiscussionRule] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [busyRule, setBusyRule] = useState(null);
-  const [myVotes, setMyVotes] = useState(loadMyVotes);
+  // Per-rule vote map driven entirely by the server response — one source of
+  // truth per logged-in user, no localStorage mirror.
+  const [myVotes, setMyVotes] = useState({});
+
+  function applyRules(list) {
+    setRules(list);
+    const next = {};
+    for (const r of list) {
+      if (r.my_vote === 1 || r.my_vote === -1) next[r.id] = r.my_vote;
+    }
+    setMyVotes(next);
+  }
 
   async function load() {
     try {
@@ -20,7 +36,7 @@ export default function Rules() {
       if (!res.ok) {
         throw new Error(data.error || `Failed (${res.status})`);
       }
-      setRules(data.rules || []);
+      applyRules(data.rules || []);
       setError(null);
     } catch (err) {
       setError(err.message || 'Could not load rules');
@@ -31,14 +47,14 @@ export default function Rules() {
     load();
   }, []);
 
-  async function submitRule({ title, description, author }) {
+  async function submitRule({ title, description }) {
     setSubmitting(true);
     try {
       const res = await fetch('/api/rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ title, description, author }),
+        body: JSON.stringify({ title, description }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed');
@@ -53,6 +69,10 @@ export default function Rules() {
 
   async function vote(ruleId, value) {
     if (busyRule) return;
+    if (!canVote) {
+      alert('Sign in with your manager account to vote.');
+      return;
+    }
     const previousVote = myVotes[ruleId] || 0;
     const newVote = value;
     setBusyRule(ruleId);
@@ -75,27 +95,21 @@ export default function Rules() {
       else next[ruleId] = newVote;
       return next;
     });
-    saveMyVote(ruleId, newVote);
 
     try {
-      const voterToken = getVoterToken();
       const res =
         newVote === 0
           ? await fetch('/api/votes', {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
-              body: JSON.stringify({ rule_id: ruleId, voter_token: voterToken }),
+              body: JSON.stringify({ rule_id: ruleId }),
             })
           : await fetch('/api/votes', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
-              body: JSON.stringify({
-                rule_id: ruleId,
-                voter_token: voterToken,
-                value: newVote,
-              }),
+              body: JSON.stringify({ rule_id: ruleId, value: newVote }),
             });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -115,7 +129,6 @@ export default function Rules() {
         else next[ruleId] = previousVote;
         return next;
       });
-      saveMyVote(ruleId, previousVote);
       alert(err.message || 'Could not record vote');
     } finally {
       setBusyRule(null);
@@ -144,10 +157,20 @@ export default function Rules() {
         <p className="muted">
           Suggest a rule and vote on what should change.
         </p>
+        {!canVote && auth?.ready && (
+          <p className="dim" style={{ marginTop: 4 }}>
+            Sign in with your manager account to cast a vote — you get one per rule.
+          </p>
+        )}
       </header>
 
       <div className="row">
-        <button className="btn btn-primary" onClick={() => setShowSheet(true)}>
+        <button
+          className="btn btn-primary"
+          onClick={() => setShowSheet(true)}
+          disabled={!canVote}
+          title={canVote ? '' : 'Sign in with your manager account to suggest a rule'}
+        >
           Suggest a rule
         </button>
         <button className="btn btn-ghost" style={{ marginLeft: 'auto' }} onClick={load}>
@@ -184,7 +207,7 @@ export default function Rules() {
               key={rule.id}
               rule={rule}
               myVote={myVotes[rule.id] || 0}
-              busy={busyRule === rule.id}
+              busy={busyRule === rule.id || !canVote}
               onVote={vote}
               postCount={rule.post_count ?? 0}
               onDiscuss={setDiscussionRule}
@@ -198,7 +221,11 @@ export default function Rules() {
         onClose={() => !submitting && setShowSheet(false)}
         title="Suggest a rule"
       >
-        <SuggestForm onSubmit={submitRule} submitting={submitting} />
+        <SuggestForm
+          onSubmit={submitRule}
+          submitting={submitting}
+          username={auth?.user?.username || null}
+        />
       </BottomSheet>
 
       {discussionRule ? (
@@ -213,31 +240,29 @@ export default function Rules() {
   );
 }
 
-function SuggestForm({ onSubmit, submitting }) {
+function SuggestForm({ onSubmit, submitting, username }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [author, setAuthor] = useState(() => {
-    try {
-      return localStorage.getItem('voter:name') || '';
-    } catch {
-      return '';
-    }
-  });
 
   function submit(e) {
     e.preventDefault();
+    if (!username) {
+      alert('Sign in with your manager account to suggest a rule.');
+      return;
+    }
     if (title.trim().length < 3) {
       alert('Give it a title (at least 3 characters).');
       return;
     }
-    try {
-      localStorage.setItem('voter:name', author.trim());
-    } catch {}
-    onSubmit({ title: title.trim(), description: description.trim(), author: author.trim() || null });
+    onSubmit({ title: title.trim(), description: description.trim() });
   }
 
   return (
     <form onSubmit={submit} className="suggest-form">
+      <p className="suggest-form__author dim">
+        Posting as{' '}
+        <strong>{username || 'guest'}</strong>
+      </p>
       <label>
         <span className="dim">Title</span>
         <input
@@ -260,23 +285,18 @@ function SuggestForm({ onSubmit, submitting }) {
           placeholder="Add context, examples, or pros/cons."
         />
       </label>
-      <label>
-        <span className="dim">Your name (optional)</span>
-        <input
-          maxLength={60}
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-          placeholder="So people know who suggested it"
-          autoComplete="given-name"
-          enterKeyHint="done"
-        />
-      </label>
-      <button className="btn btn-primary" type="submit" disabled={submitting} style={{ marginTop: 8 }}>
+      <button
+        className="btn btn-primary"
+        type="submit"
+        disabled={submitting || !username}
+        style={{ marginTop: 8 }}
+      >
         {submitting ? 'Submitting…' : 'Submit suggestion'}
       </button>
       <style>{`
         .suggest-form { display: flex; flex-direction: column; gap: 12px; }
         .suggest-form label { display: flex; flex-direction: column; gap: 6px; }
+        .suggest-form__author { margin: 0; }
       `}</style>
     </form>
   );

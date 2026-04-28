@@ -10,3 +10,4 @@ dist-ssr
 coverage
 .env*.local
 logins.txt
+manager-logins.txt
