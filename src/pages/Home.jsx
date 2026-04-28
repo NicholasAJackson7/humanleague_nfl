@@ -86,7 +86,7 @@ export default function Home() {
           to="/stats"
           icon={StatsIcon}
           title="League Stats"
-          body="Standings, highlights, all-time totals, head-to-head."
+          body="Standings, all-time totals and head-to-head."
         />
       </div>
     </div>
