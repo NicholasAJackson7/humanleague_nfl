@@ -237,6 +237,38 @@
   line-height: 1.45;
 }
 
+.keepers-locked-season {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  border-radius: 12px;
+  background: rgba(15, 22, 40, 0.55);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.keepers-locked-season .keepers-label {
+  margin: 0;
+}
+
+.keepers-locked-season__value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f0f9ff;
+  letter-spacing: -0.01em;
+}
+
+.keepers-locked-season__sub {
+  font-size: var(--fs-xs);
+  color: var(--color-text-dim);
+}
+
+.keepers-locked-season__sub strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
 .keepers-page .keepers-form label {
   display: flex;
   flex-direction: column;

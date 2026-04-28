@@ -234,7 +234,7 @@ export default function Keepers() {
       return;
     }
     if (!seasonLabel) {
-      setFormErr('Choose which season this nomination is for.');
+      setFormErr('League season is still loading — wait a moment and try again.');
       return;
     }
 
@@ -329,8 +329,7 @@ export default function Keepers() {
           <p className="muted">
           You will lose the draft
             pick in the upcoming draft wherever your keeper was picked last season. E.g. Gabe Nabers was drafted in the
-            3rd, meaning Georgia will lose that pick because she will obviously keep this <strong>ELITE</strong> player. She'll
-            also lose her 4th or 5th as well, they were also <strong>unbelievable</strong> as well.
+            3rd, meaning Georgia will lose that pick because she will obviously be keeping this <strong>ELITE</strong> player.
           </p>
         </div>
       </details>
@@ -381,25 +380,22 @@ export default function Keepers() {
       )}
 
       <form className="card keepers-form keepers-form-card" onSubmit={onSubmit}>
-        <label>
-          <span className="keepers-label">Season this nomination applies to</span>
-          <select
-            value={seasonLeagueId}
-            disabled={chainLoading || !chain.length}
-            onChange={(e) => {
-              const id = e.target.value;
-              setSeasonLeagueId(id);
-              const row = chain.find((c) => c.leagueId === id);
-              setSeasonLabel(row ? String(row.season) : '');
-            }}
-          >
-            {chain.map((c) => (
-              <option key={c.leagueId} value={c.leagueId}>
-                {c.season} roster ({c.name || c.leagueId})
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="keepers-locked-season">
+          <span className="keepers-label">Keepers carry into</span>
+          {chainLoading || !chain[0] ? (
+            <span className="keepers-locked-season__value muted">Loading league season…</span>
+          ) : (
+            <>
+              <span className="keepers-locked-season__value">
+                {Number(chain[0].season) + 1} season
+              </span>
+              <span className="keepers-locked-season__sub">
+                Picked from your <strong>{chain[0].season}</strong> roster
+                {chain[0].name ? ` · ${chain[0].name}` : ''}
+              </span>
+            </>
+          )}
+        </div>
 
         <label>
           <span className="keepers-label">You are (Sleeper manager)</span>

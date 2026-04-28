@@ -457,6 +457,7 @@ function PlayoffSection({ playoff, season }) {
       <p className="muted">
         No playoff scores or winners bracket in Sleeper yet for this league (season not started, still
         in regular season, or data not published).
+        
       </p>
     );
   }
