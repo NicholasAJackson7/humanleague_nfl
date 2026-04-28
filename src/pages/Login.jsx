@@ -118,7 +118,7 @@ export default function Login() {
               placeholder={userLogin ? 'e.g. Dansa-Bellend' : 'Optional for shared password'}
             />
             {modes != null && userLogin && siteLogin ? (
-              <p className="login-hint">This is a DIY app, if you've forgotten, you're gonna have to ask Nick for help.</p>
+              <p className="login-hint">If you've forgotten, you're gonna have to ask Nick for help.</p>
             ) : null}
           </div>
         )}
