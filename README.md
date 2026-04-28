@@ -34,7 +34,7 @@ cp .env.example .env
 ```
 
 Edit `.env`:
-asas
+
 ```
 VITE_SLEEPER_LEAGUE_ID=your_league_id_here
 DATABASE_URL=postgres://...   # only needed if you want to test /api locally
