@@ -533,9 +533,7 @@ function CareerTable({ career, seasonCount }) {
   return (
     <>
       <p className="muted" style={{ marginTop: 0, marginBottom: 12 }}>
-        Rows are keyed by <strong>owner user id</strong> across every linked season ({seasonCount}{' '}
-        {seasonCount === 1 ? 'league' : 'leagues'}). Display name + avatar are from the most recent
-        season we loaded. Imagine having the best record over 2 years and not having a championship. What's that feel like Mike?
+        Imagine having the best record over 2 years and not having a championship. What's that feel like Mike?
       </p>
       <div className="scroll-x">
         <table>
