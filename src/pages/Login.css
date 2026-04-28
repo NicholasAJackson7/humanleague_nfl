@@ -1,8 +1,17 @@
 .login-page {
+  width: 100%;
   max-width: 420px;
   margin: 0 auto;
-  padding-top: var(--space-5);
-  padding-bottom: var(--space-6);
+  padding-top: calc(var(--safe-top) + var(--space-5));
+  padding-bottom: calc(var(--safe-bottom) + var(--space-6));
+  padding-left: max(var(--space-4), var(--safe-left));
+  padding-right: max(var(--space-4), var(--safe-right));
+}
+
+@media (min-width: 480px) {
+  .login-page {
+    max-width: calc(420px + var(--space-4) * 2);
+  }
 }
 
 .login-brand {

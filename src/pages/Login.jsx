@@ -80,7 +80,7 @@ export default function Login() {
   if (modes) {
     if (userLogin && siteLogin) {
       lead =
-        'Use your member username and password, or leave username blank and enter the shared league password.';
+        '';
     } else if (userLogin) {
       lead = 'Use the username and password your commissioner set up for you.';
     } else if (siteLogin) {
@@ -118,7 +118,7 @@ export default function Login() {
               placeholder={userLogin ? 'e.g. Dansa-Bellend' : 'Optional for shared password'}
             />
             {modes != null && userLogin && siteLogin ? (
-              <p className="login-hint">Leave blank if you are using the shared league password instead.</p>
+              <p className="login-hint">This is a DIY app, if you've forgotten, you're gonna have to ask Nick for help.</p>
             ) : null}
           </div>
         )}
@@ -146,7 +146,7 @@ export default function Login() {
         </button>
       </form>
 
-      <p className="login-foot">Sessions use a secure cookie on this domain. Use a private device when possible.</p>
+      <p className="login-foot">Frogetting passwords will be publically shamed.</p>
     </div>
   );
 }
