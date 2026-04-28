@@ -79,8 +79,29 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      // Suggesting a rule now requires a member account so the author is
+      // attributed to a real manager (no more free-text names).
+      const session = getSessionPayload(req);
+      const sub = session && typeof session.sub === 'string' && UUID_RE.test(session.sub)
+        ? session.sub
+        : null;
+      if (!sub) {
+        return send(res, 401, { error: 'Sign in with your manager account to suggest a rule.' });
+      }
+
+      const userRows = await sql`
+        select username, disabled
+        from app_users
+        where id = ${sub}
+        limit 1
+      `;
+      const account = userRows[0];
+      if (!account || account.disabled) {
+        return send(res, 401, { error: 'Account is not active' });
+      }
+
       const ip = clientIp(req);
-      if (!rateLimit(`rules:${ip}`, { max: 8, windowMs: 60_000 })) {
+      if (!rateLimit(`rules:${sub}:${ip}`, { max: 8, windowMs: 60_000 })) {
         return send(res, 429, { error: 'Too many requests, slow down a sec.' });
       }
 
@@ -90,8 +111,7 @@ export default async function handler(req, res) {
       }
       const title = String(body.title || '').trim();
       const description = String(body.description || '').trim();
-      const authorRaw = body.author == null ? null : String(body.author).trim();
-      const author = authorRaw && authorRaw.length > 0 ? authorRaw.slice(0, 60) : null;
+      const author = String(account.username).slice(0, 60);
 
       if (title.length < 3 || title.length > 140) {
         return send(res, 400, { error: 'Title must be 3-140 characters' });

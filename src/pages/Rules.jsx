@@ -47,14 +47,14 @@ export default function Rules() {
     load();
   }, []);
 
-  async function submitRule({ title, description, author }) {
+  async function submitRule({ title, description }) {
     setSubmitting(true);
     try {
       const res = await fetch('/api/rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ title, description, author }),
+        body: JSON.stringify({ title, description }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed');
@@ -165,7 +165,12 @@ export default function Rules() {
       </header>
 
       <div className="row">
-        <button className="btn btn-primary" onClick={() => setShowSheet(true)}>
+        <button
+          className="btn btn-primary"
+          onClick={() => setShowSheet(true)}
+          disabled={!canVote}
+          title={canVote ? '' : 'Sign in with your manager account to suggest a rule'}
+        >
           Suggest a rule
         </button>
         <button className="btn btn-ghost" style={{ marginLeft: 'auto' }} onClick={load}>
@@ -216,7 +221,11 @@ export default function Rules() {
         onClose={() => !submitting && setShowSheet(false)}
         title="Suggest a rule"
       >
-        <SuggestForm onSubmit={submitRule} submitting={submitting} />
+        <SuggestForm
+          onSubmit={submitRule}
+          submitting={submitting}
+          username={auth?.user?.username || null}
+        />
       </BottomSheet>
 
       {discussionRule ? (
@@ -231,31 +240,29 @@ export default function Rules() {
   );
 }
 
-function SuggestForm({ onSubmit, submitting }) {
+function SuggestForm({ onSubmit, submitting, username }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [author, setAuthor] = useState(() => {
-    try {
-      return localStorage.getItem('voter:name') || '';
-    } catch {
-      return '';
-    }
-  });
 
   function submit(e) {
     e.preventDefault();
+    if (!username) {
+      alert('Sign in with your manager account to suggest a rule.');
+      return;
+    }
     if (title.trim().length < 3) {
       alert('Give it a title (at least 3 characters).');
       return;
     }
-    try {
-      localStorage.setItem('voter:name', author.trim());
-    } catch {}
-    onSubmit({ title: title.trim(), description: description.trim(), author: author.trim() || null });
+    onSubmit({ title: title.trim(), description: description.trim() });
   }
 
   return (
     <form onSubmit={submit} className="suggest-form">
+      <p className="suggest-form__author dim">
+        Posting as{' '}
+        <strong>{username || 'guest'}</strong>
+      </p>
       <label>
         <span className="dim">Title</span>
         <input
@@ -278,23 +285,18 @@ function SuggestForm({ onSubmit, submitting }) {
           placeholder="Add context, examples, or pros/cons."
         />
       </label>
-      <label>
-        <span className="dim">Your name (optional)</span>
-        <input
-          maxLength={60}
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-          placeholder="So people know who suggested it"
-          autoComplete="given-name"
-          enterKeyHint="done"
-        />
-      </label>
-      <button className="btn btn-primary" type="submit" disabled={submitting} style={{ marginTop: 8 }}>
+      <button
+        className="btn btn-primary"
+        type="submit"
+        disabled={submitting || !username}
+        style={{ marginTop: 8 }}
+      >
         {submitting ? 'Submitting…' : 'Submit suggestion'}
       </button>
       <style>{`
         .suggest-form { display: flex; flex-direction: column; gap: 12px; }
         .suggest-form label { display: flex; flex-direction: column; gap: 6px; }
+        .suggest-form__author { margin: 0; }
       `}</style>
     </form>
   );
