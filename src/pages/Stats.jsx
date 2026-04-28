@@ -541,6 +541,7 @@ function CareerTable({ career, seasonCount }) {
             <tr>
               <th>#</th>
               <th>Manager</th>
+              <th title="Championships won across linked seasons">Titles</th>
               <th>W-L-T</th>
               <th>Career PF</th>
               <th>Career PA</th>
@@ -572,6 +573,12 @@ function CareerTable({ career, seasonCount }) {
                       {r.displayName}
                     </span>
                   </div>
+                </td>
+                <td
+                  className={r.championships > 0 ? '' : 'muted'}
+                  style={{ fontWeight: r.championships > 0 ? 650 : 400 }}
+                >
+                  {r.championships > 0 ? r.championships : '—'}
                 </td>
                 <td>
                   {r.wins}-{r.losses}
