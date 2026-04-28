@@ -102,65 +102,42 @@ export default async function handler(req, res) {
         return send(res, 400, { error: 'source_season is required (e.g. 2025)' });
       }
 
-      const kind = body.nomination_kind === 'freeform' ? 'freeform' : 'roster';
+      // Only Sleeper-roster picks are accepted now. Older freeform rows in
+      // the DB are still served by the GET handler.
+      if (body.nomination_kind && body.nomination_kind !== 'roster') {
+        return send(res, 400, {
+          error: 'Freeform nominations are no longer accepted — pick keepers from your Sleeper roster.',
+        });
+      }
+      const kind = 'roster';
       const leagueSnap = normStr(body.league_id_snapshot, 40);
-
-      let k1p;
-      let k2p;
-      let k3p;
-      let k1t;
-      let k2t;
-      let k3t;
 
       // Rule: keeper 1 is guaranteed and required. If a manager wants a
       // second keeper they must nominate BOTH keeper 2 and keeper 3 (one of
-      // those two is then chosen by the league randomiser). Submitting just
+      // those two is chosen at the coin-flipping ceremony). Submitting just
       // 1 of 2/3 is rejected.
-      if (kind === 'roster') {
-        k1p = normStr(body.k1_player_id, 40) || null;
-        k2p = normStr(body.k2_player_id, 40) || null;
-        k3p = normStr(body.k3_player_id, 40) || null;
-        if (!k1p) {
-          return send(res, 400, { error: 'Keeper 1 (guaranteed) is required.' });
-        }
-        if (Boolean(k2p) !== Boolean(k3p)) {
-          return send(res, 400, {
-            error: 'If you want a second keeper, fill in BOTH keeper 2 and keeper 3 (one is randomised).',
-          });
-        }
-        if (k2p && k3p) {
-          const ids = [k1p, k2p, k3p];
-          if (new Set(ids).size !== ids.length) {
-            return send(res, 400, { error: 'Pick three different players.' });
-          }
-        } else if (k1p === k2p || k1p === k3p) {
-          return send(res, 400, { error: 'Pick a different player for each keeper slot.' });
-        }
-        k1t = null;
-        k2t = null;
-        k3t = null;
-      } else {
-        k1t = normStr(body.k1_text, 160) || null;
-        k2t = normStr(body.k2_text, 160) || null;
-        k3t = normStr(body.k3_text, 160) || null;
-        if (!k1t || k1t.length < 2) {
-          return send(res, 400, { error: 'Keeper 1 (guaranteed) is required (at least 2 characters).' });
-        }
-        if (Boolean(k2t) !== Boolean(k3t)) {
-          return send(res, 400, {
-            error: 'If you want a second keeper, fill in BOTH keeper 2 and keeper 3 (one is randomised).',
-          });
-        }
-        if (k2t && k2t.length < 2) {
-          return send(res, 400, { error: 'Keeper 2 must be at least 2 characters.' });
-        }
-        if (k3t && k3t.length < 2) {
-          return send(res, 400, { error: 'Keeper 3 must be at least 2 characters.' });
-        }
-        k1p = null;
-        k2p = null;
-        k3p = null;
+      const k1p = normStr(body.k1_player_id, 40) || null;
+      const k2p = normStr(body.k2_player_id, 40) || null;
+      const k3p = normStr(body.k3_player_id, 40) || null;
+      if (!k1p) {
+        return send(res, 400, { error: 'Keeper 1 (guaranteed) is required.' });
       }
+      if (Boolean(k2p) !== Boolean(k3p)) {
+        return send(res, 400, {
+          error: 'If you want a second keeper, fill in BOTH keeper 2 and keeper 3 (one is randomised).',
+        });
+      }
+      if (k2p && k3p) {
+        const ids = [k1p, k2p, k3p];
+        if (new Set(ids).size !== ids.length) {
+          return send(res, 400, { error: 'Pick three different players.' });
+        }
+      } else if (k1p === k2p || k1p === k3p) {
+        return send(res, 400, { error: 'Pick a different player for each keeper slot.' });
+      }
+      const k1t = null;
+      const k2t = null;
+      const k3t = null;
 
       const [row] = await sql`
         insert into keeper_nominations (

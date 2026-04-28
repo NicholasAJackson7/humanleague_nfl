@@ -146,7 +146,7 @@ export default function Login() {
         </button>
       </form>
 
-      <p className="login-foot">Frogetting passwords will be publically shamed.</p>
+      <p className="login-foot">Forgetting passwords will be publically shamed.</p>
     </div>
   );
 }
