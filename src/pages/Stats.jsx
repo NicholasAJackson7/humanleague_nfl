@@ -465,7 +465,7 @@ function PlayoffSection({ playoff, season }) {
     <>
       <p className="muted" style={{ marginTop: 0, marginBottom: 12 }}>
         Playoff weeks are week {playoff.playoffWeekStart} and later (through week 18). Highlights and
-        manager profiles below use <strong>only</strong> those weeks. It sucks to come 2nd right, Mike?
+        manager profiles below use <strong>only</strong> those weeks. It sucks to come 2nd, right Mike?
       </p>
 
       {showBracket && (playoff.bracket?.championName || playoff.bracket?.decisiveMatches?.length) ? (

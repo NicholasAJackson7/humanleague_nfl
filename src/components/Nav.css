@@ -11,7 +11,7 @@
 
 .bottom-nav ul {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   list-style: none;
   margin: 0;
   padding: 4px max(var(--space-2), var(--safe-left)) 4px max(var(--space-2), var(--safe-right));
@@ -19,7 +19,7 @@
 }
 
 .bottom-nav.bottom-nav--auth ul {
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(6, 1fr);
 }
 
 .bottom-nav .tab {
@@ -65,14 +65,14 @@
   .bottom-nav ul {
     max-width: 1100px;
     margin: 0 auto;
-    grid-template-columns: repeat(6, max-content);
-    justify-content: flex-start;
+    grid-template-columns: repeat(5, max-content);
+    justify-content: center;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-4);
   }
 
   .bottom-nav.bottom-nav--auth ul {
-    grid-template-columns: repeat(7, max-content);
+    grid-template-columns: repeat(6, max-content);
   }
   .bottom-nav .tab {
     flex-direction: row;
