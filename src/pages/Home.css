@@ -35,7 +35,9 @@ body:has(.home-page) {
       rgba(11, 18, 32, 0.95) 5%,
       rgba(11, 18, 32, 0.55) 14%,
       rgba(11, 18, 32, 0.18) 45%,
-      rgba(11, 18, 32, 0.78) 100%
+      rgba(11, 18, 32, 0.55) 86%,
+      rgba(11, 18, 32, 0.95) 95%,
+      rgba(11, 18, 32, 1) 100%
     ),
     url('/img/winner_2025.jpeg');
   background-repeat: no-repeat, no-repeat;

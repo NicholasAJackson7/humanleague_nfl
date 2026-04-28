@@ -544,7 +544,6 @@ function CareerTable({ career, seasonCount }) {
             <tr>
               <th>#</th>
               <th>Manager</th>
-              <th>Seasons</th>
               <th>W-L-T</th>
               <th>Career PF</th>
               <th>Career PA</th>
@@ -552,6 +551,7 @@ function CareerTable({ career, seasonCount }) {
               <th>Best week</th>
               <th>Worst week</th>
               <th>Bench pts</th>
+              <th>Seasons</th>
             </tr>
           </thead>
           <tbody>
@@ -576,9 +576,6 @@ function CareerTable({ career, seasonCount }) {
                     </span>
                   </div>
                 </td>
-                <td className="muted" style={{ whiteSpace: 'nowrap' }}>
-                  {r.seasonsLabel}
-                </td>
                 <td>
                   {r.wins}-{r.losses}
                   {r.ties ? `-${r.ties}` : ''}
@@ -597,6 +594,9 @@ function CareerTable({ career, seasonCount }) {
                     : '—'}
                 </td>
                 <td>{r.benchTotal.toFixed(2)}</td>
+                <td className="muted" style={{ whiteSpace: 'nowrap' }}>
+                  {r.seasonsLabel}
+                </td>
               </tr>
             ))}
           </tbody>
