@@ -192,7 +192,7 @@
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 0 6px rgba(255, 215, 100, 0.45))
     drop-shadow(0 0 14px rgba(212, 175, 55, 0.25));
-  animation: manager-fire-shimmer 6s linear infinite;
+  animation: manager-fire-shimmer 2.5s linear infinite;
 }
 
 @keyframes manager-fire-shimmer {
