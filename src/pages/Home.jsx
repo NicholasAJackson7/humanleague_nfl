@@ -212,7 +212,7 @@ function NoConfig() {
         settings, then redeploy.
       </p>
       <p className="dim">
-        You can find your league id in the URL when you view your league on{' '}
+        You can find your league id in the URL when you view the league on{' '}
         <a href="https://sleeper.app/" target="_blank" rel="noreferrer">
           sleeper.app
         </a>
