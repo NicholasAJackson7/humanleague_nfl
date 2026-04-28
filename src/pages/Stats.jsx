@@ -526,7 +526,7 @@ function PlayoffSection({ playoff, season }) {
 }
 
 function CareerTable({ career, seasonCount }) {
-  const { rows } = career;
+  const { rows, latestChampionUserId } = career;
   if (!rows.length) {
     return <p className="muted">No manager rows could be built from the loaded seasons.</p>;
   }
@@ -553,7 +553,9 @@ function CareerTable({ career, seasonCount }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
+            {rows.map((r, i) => {
+              const isReigning = !!latestChampionUserId && r.userId === latestChampionUserId;
+              return (
               <tr key={r.userId}>
                 <td>{i + 1}</td>
                 <td>
@@ -569,7 +571,11 @@ function CareerTable({ career, seasonCount }) {
                     ) : (
                       <span style={{ width: 22, height: 22, display: 'inline-block' }} />
                     )}
-                    <span className="truncate" style={{ maxWidth: 160 }} title={r.userId}>
+                    <span
+                      className={`truncate${isReigning ? ' manager-on-fire' : ''}`}
+                      style={{ maxWidth: 160 }}
+                      title={isReigning ? `${r.userId} · reigning champion` : r.userId}
+                    >
                       {r.displayName}
                     </span>
                   </div>
@@ -602,7 +608,8 @@ function CareerTable({ career, seasonCount }) {
                   {r.seasonsLabel}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

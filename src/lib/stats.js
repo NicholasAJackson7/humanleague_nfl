@@ -502,6 +502,8 @@ export function computeCareerByUser(seasonStats) {
 
   /** @type {Record<string, any>} */
   const byUser = {};
+  // First user we see win in the newest-first walk = current reigning champion.
+  let latestChampionUserId = null;
 
   for (const { season, stats } of sortedNewestFirst) {
     const seasonKey = String(season);
@@ -549,6 +551,7 @@ export function computeCareerByUser(seasonStats) {
       const champOwnerId = rosterToOwner[champRosterId];
       if (champOwnerId && byUser[champOwnerId]) {
         byUser[champOwnerId].championships += 1;
+        if (latestChampionUserId == null) latestChampionUserId = champOwnerId;
       }
     }
 
@@ -599,5 +602,5 @@ export function computeCareerByUser(seasonStats) {
     })
     .sort((a, b) => b.careerPf - a.careerPf);
 
-  return { rows, seasons };
+  return { rows, seasons, latestChampionUserId };
 }
