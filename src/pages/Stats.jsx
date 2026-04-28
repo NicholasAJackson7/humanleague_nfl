@@ -171,7 +171,6 @@ export default function Stats() {
       {state.status === 'ready' && stats && (
         <>
           <div className="insights-toolbar">
-            <span className="dim">Cached locally · safe to refresh</span>
             <button
               type="button"
               className="btn btn-ghost"

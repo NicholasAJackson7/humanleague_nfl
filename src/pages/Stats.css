@@ -1,13 +1,10 @@
 .insights-toolbar {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-3);
   flex-wrap: wrap;
   margin-bottom: var(--space-4);
-}
-
-.insights-toolbar .dim {
-  margin-right: auto;
 }
 
 .insights-section {
