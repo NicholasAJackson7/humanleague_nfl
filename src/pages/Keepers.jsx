@@ -400,9 +400,7 @@ export default function Keepers() {
         </label>
 
         <p className="keepers-hint">
-          Keeper 1 is your guaranteed pick. Want a second keeper? Pick <strong>both</strong> keeper 2 and 3 from your
-          roster — one of those two becomes your randomised second keeper. Leave 2 and 3 blank to keep just one. (First
-          load may take a few seconds while player names download from Sleeper.)
+          First load may take a few seconds while player names download from Sleeper.
         </p>
         <label>
           <span className="keepers-label">Keeper 1 (guaranteed)</span>
