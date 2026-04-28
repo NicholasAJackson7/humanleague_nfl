@@ -13,15 +13,19 @@ create table if not exists rules (
 
 create index if not exists rules_created_at_idx on rules (created_at desc);
 
+-- Votes are scoped to authenticated app users so each manager gets exactly one
+-- vote per rule (still toggleable / removable). See db/migrations/0001_user_votes.sql
+-- for the migration from the older browser-token scheme.
 create table if not exists votes (
-  rule_id      uuid not null references rules(id) on delete cascade,
-  voter_token  text not null check (length(voter_token) between 8 and 80),
-  value        smallint not null check (value in (-1, 1)),
-  created_at   timestamptz not null default now(),
-  primary key (rule_id, voter_token)
+  rule_id    uuid not null references rules(id) on delete cascade,
+  user_id    uuid not null references app_users(id) on delete cascade,
+  value      smallint not null check (value in (-1, 1)),
+  created_at timestamptz not null default now(),
+  primary key (rule_id, user_id)
 );
 
 create index if not exists votes_rule_id_idx on votes (rule_id);
+create index if not exists votes_user_id_idx on votes (user_id);
 
 -- Per-rule discussion (forum-style thread)
 create table if not exists rule_posts (

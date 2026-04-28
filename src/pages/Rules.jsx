@@ -2,16 +2,32 @@ import React, { useCallback, useEffect, useState } from 'react';
 import RuleCard from '../components/RuleCard.jsx';
 import BottomSheet from '../components/BottomSheet.jsx';
 import RuleDiscussionSheet from '../components/RuleDiscussionSheet.jsx';
-import { getVoterToken, loadMyVotes, saveMyVote } from '../lib/voter.js';
+import { useAuth } from '../AuthContext.jsx';
 
 export default function Rules() {
+  const auth = useAuth();
+  // Voting now requires a real member account (not just the shared site
+  // password). Dev-bypass falls back to read-only.
+  const canVote = Boolean(auth?.user?.username);
+
   const [rules, setRules] = useState(null);
   const [error, setError] = useState(null);
   const [showSheet, setShowSheet] = useState(false);
   const [discussionRule, setDiscussionRule] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [busyRule, setBusyRule] = useState(null);
-  const [myVotes, setMyVotes] = useState(loadMyVotes);
+  // Per-rule vote map driven entirely by the server response — one source of
+  // truth per logged-in user, no localStorage mirror.
+  const [myVotes, setMyVotes] = useState({});
+
+  function applyRules(list) {
+    setRules(list);
+    const next = {};
+    for (const r of list) {
+      if (r.my_vote === 1 || r.my_vote === -1) next[r.id] = r.my_vote;
+    }
+    setMyVotes(next);
+  }
 
   async function load() {
     try {
@@ -20,7 +36,7 @@ export default function Rules() {
       if (!res.ok) {
         throw new Error(data.error || `Failed (${res.status})`);
       }
-      setRules(data.rules || []);
+      applyRules(data.rules || []);
       setError(null);
     } catch (err) {
       setError(err.message || 'Could not load rules');
@@ -53,6 +69,10 @@ export default function Rules() {
 
   async function vote(ruleId, value) {
     if (busyRule) return;
+    if (!canVote) {
+      alert('Sign in with your manager account to vote.');
+      return;
+    }
     const previousVote = myVotes[ruleId] || 0;
     const newVote = value;
     setBusyRule(ruleId);
@@ -75,27 +95,21 @@ export default function Rules() {
       else next[ruleId] = newVote;
       return next;
     });
-    saveMyVote(ruleId, newVote);
 
     try {
-      const voterToken = getVoterToken();
       const res =
         newVote === 0
           ? await fetch('/api/votes', {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
-              body: JSON.stringify({ rule_id: ruleId, voter_token: voterToken }),
+              body: JSON.stringify({ rule_id: ruleId }),
             })
           : await fetch('/api/votes', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
-              body: JSON.stringify({
-                rule_id: ruleId,
-                voter_token: voterToken,
-                value: newVote,
-              }),
+              body: JSON.stringify({ rule_id: ruleId, value: newVote }),
             });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -115,7 +129,6 @@ export default function Rules() {
         else next[ruleId] = previousVote;
         return next;
       });
-      saveMyVote(ruleId, previousVote);
       alert(err.message || 'Could not record vote');
     } finally {
       setBusyRule(null);
@@ -144,6 +157,11 @@ export default function Rules() {
         <p className="muted">
           Suggest a rule and vote on what should change.
         </p>
+        {!canVote && auth?.ready && (
+          <p className="dim" style={{ marginTop: 4 }}>
+            Sign in with your manager account to cast a vote — you get one per rule.
+          </p>
+        )}
       </header>
 
       <div className="row">
@@ -184,7 +202,7 @@ export default function Rules() {
               key={rule.id}
               rule={rule}
               myVote={myVotes[rule.id] || 0}
-              busy={busyRule === rule.id}
+              busy={busyRule === rule.id || !canVote}
               onVote={vote}
               postCount={rule.post_count ?? 0}
               onDiscuss={setDiscussionRule}

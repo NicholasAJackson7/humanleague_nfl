@@ -1,6 +1,8 @@
 import { getSql, rateLimit, clientIp, readJsonBody, send } from './_db.js';
-import { assertSiteAuth } from './_auth.js';
+import { assertSiteAuth, getSessionPayload } from './_auth.js';
 import { isUndefinedRelation } from './_pgErrors.js';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function handler(req, res) {
   try {
@@ -9,6 +11,16 @@ export default async function handler(req, res) {
     const sql = getSql();
 
     if (req.method === 'GET') {
+      // Resolve the caller's account id (if any) so we can also return their
+      // own vote per rule. Site-password-only sessions and dev bypass get null
+      // and just see the public totals.
+      const session = getSessionPayload(req);
+      const sub = session && typeof session.sub === 'string' && UUID_RE.test(session.sub)
+        ? session.sub
+        : null;
+
+      // Note: when sub is null the subquery's `user_id = null` predicate is
+      // always false, so my_vote falls back to 0 with no extra branching.
       const queryWithPosts = () => sql`
         select
           r.id,
@@ -19,6 +31,10 @@ export default async function handler(req, res) {
           coalesce(sum(case when v.value = 1 then 1 else 0 end), 0)::int  as up,
           coalesce(sum(case when v.value = -1 then 1 else 0 end), 0)::int as down,
           coalesce(sum(v.value), 0)::int                                  as score,
+          coalesce(
+            (select mv.value from votes mv where mv.rule_id = r.id and mv.user_id = ${sub} limit 1),
+            0
+          )::int as my_vote,
           coalesce(
             (select count(*)::int from rule_posts p where p.rule_id = r.id),
             0
@@ -38,7 +54,11 @@ export default async function handler(req, res) {
           r.created_at,
           coalesce(sum(case when v.value = 1 then 1 else 0 end), 0)::int  as up,
           coalesce(sum(case when v.value = -1 then 1 else 0 end), 0)::int as down,
-          coalesce(sum(v.value), 0)::int                                  as score
+          coalesce(sum(v.value), 0)::int                                  as score,
+          coalesce(
+            (select mv.value from votes mv where mv.rule_id = r.id and mv.user_id = ${sub} limit 1),
+            0
+          )::int as my_vote
         from rules r
         left join votes v on v.rule_id = r.id
         group by r.id
@@ -86,7 +106,7 @@ export default async function handler(req, res) {
         returning id, title, description, author, created_at
       `;
       return send(res, 201, {
-        rule: { ...rule, up: 0, down: 0, score: 0, post_count: 0 },
+        rule: { ...rule, up: 0, down: 0, score: 0, post_count: 0, my_vote: 0 },
       });
     }
 

@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "db:verify": "node scripts/verify-database-url.mjs",
     "create-user": "node --env-file=.env.local scripts/create-user.mjs",
-    "hash-password": "node scripts/hash-password.mjs"
+    "hash-password": "node scripts/hash-password.mjs",
+    "db:migrate": "node --env-file=.env.local scripts/run-migration.mjs"
   },
   "dependencies": {
     "pg": "^8.13.1",
