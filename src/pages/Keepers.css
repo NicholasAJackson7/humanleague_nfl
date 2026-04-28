@@ -1,3 +1,106 @@
+.keepers-help {
+  margin: 0 0 var(--space-4);
+  border-radius: 12px;
+  border: 1px solid rgba(100, 116, 139, 0.16);
+  background: rgba(15, 22, 40, 0.45);
+  overflow: hidden;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.keepers-help[open] {
+  border-color: rgba(56, 189, 248, 0.28);
+  background: rgba(15, 22, 40, 0.7);
+}
+
+.keepers-help__summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  user-select: none;
+  outline: none;
+  font-size: var(--fs-sm);
+  color: var(--color-text-dim);
+}
+
+.keepers-help__summary::-webkit-details-marker {
+  display: none;
+}
+
+.keepers-help__summary:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.55);
+  outline-offset: -2px;
+}
+
+.keepers-help__summary:hover {
+  color: var(--color-text);
+}
+
+.keepers-help__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.16);
+  color: #7dd3fc;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.keepers-help__label {
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.keepers-help__hint {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--color-text-dim);
+}
+
+.keepers-help[open] .keepers-help__hint {
+  opacity: 0;
+}
+
+.keepers-help__chevron {
+  color: var(--color-text-dim);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.keepers-help[open] .keepers-help__chevron {
+  transform: rotate(180deg);
+  color: #7dd3fc;
+}
+
+.keepers-help__body {
+  padding: 4px 14px 12px;
+  border-top: 1px solid rgba(100, 116, 139, 0.14);
+}
+
+.keepers-help__body p {
+  margin: 10px 0 0;
+  line-height: 1.55;
+}
+
+.keepers-help__body p strong {
+  color: var(--color-text);
+}
+
+@media (max-width: 520px) {
+  .keepers-help__hint {
+    display: none;
+  }
+}
+
 .keepers-reveal-gate {
   margin-top: var(--space-2);
   padding: var(--space-4);

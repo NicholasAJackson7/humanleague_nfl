@@ -298,12 +298,42 @@ export default function Keepers() {
       <header className="page-header">
         <span className="eyebrow">Off-season</span>
         <h1>Keeper nominations</h1>
-        <p className="muted">
-          <strong>Keeper 1 is your guaranteed pick.</strong> If you want a second keeper, you must nominate{' '}
-          <strong>both</strong> keeper 2 <em>and</em> keeper 3 — we will have a coin flipping ceremony to decide who
-          you get to keep. Picking just one keeper is fine; picking exactly two is not allowed.
-        </p>
       </header>
+
+      <details className="keepers-help">
+        <summary className="keepers-help__summary">
+          <span className="keepers-help__icon" aria-hidden="true">?</span>
+          <span className="keepers-help__label">Keeper Rules</span>
+          <span className="keepers-help__hint">How keepers work</span>
+          <svg
+            className="keepers-help__chevron"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </summary>
+        <div className="keepers-help__body">
+          <p className="muted">
+            <strong>Keeper 1 is your guaranteed pick.</strong> If you want a second keeper, you must nominate{' '}
+            <strong>both</strong> keeper 2 <em>and</em> keeper 3 — we will have a coin flipping ceremony to decide who
+            you get to keep. Picking just one keeper is fine; picking exactly two is not allowed. 
+          </p>
+          <p className="muted">
+          You will lose the draft
+            pick in the upcoming draft wherever your keeper was picked last season. E.g. Gabe Nabers was drafted in the
+            3rd, meaning Georgia will lose that pick because she will obviously keep this <strong>ELITE</strong> player. She'll
+            also lose her 4th or 5th as well, they were also <strong>unbelievable</strong> as well.
+          </p>
+        </div>
+      </details>
 
       {lookupErr && (
         <p className="keepers-warn" role="status">

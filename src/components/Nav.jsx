@@ -6,7 +6,6 @@ import './Nav.css';
 const items = [
   { to: '/', label: 'Home', icon: HomeIcon, end: true },
   { to: '/stats', label: 'Stats', icon: StatsIcon },
-  { to: '/h2h', label: 'H2H', icon: H2HIcon },
   { to: '/drafts', label: 'Draft', icon: DraftIcon },
   { to: '/keepers', label: 'Keepers', icon: KeeperIcon },
   { to: '/rules', label: 'Rules', icon: RulesIcon },
@@ -76,20 +75,8 @@ function HomeIcon() {
 function StatsIcon() {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <line x1="4" y1="20" x2="4" y2="10" />
-      <line x1="10" y1="20" x2="10" y2="4" />
-      <line x1="16" y1="20" x2="16" y2="14" />
-      <line x1="22" y1="20" x2="22" y2="8" />
-    </svg>
-  );
-}
-
-function H2HIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="8" cy="9" r="3.5" />
-      <circle cx="16" cy="9" r="3.5" />
-      <path d="M4 20c.8-3 3.5-5 8-5s7.2 2 8 5" />
+      <path d="M3 3v18h18" />
+      <path d="M7 15l4-4 3 3 5-6" />
     </svg>
   );
 }

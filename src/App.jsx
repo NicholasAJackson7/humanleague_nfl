@@ -7,7 +7,6 @@ const Home = lazy(() => import('./pages/Home.jsx'));
 const Stats = lazy(() => import('./pages/Stats.jsx'));
 const Wheel = lazy(() => import('./pages/Wheel.jsx'));
 const Rules = lazy(() => import('./pages/Rules.jsx'));
-const HeadToHead = lazy(() => import('./pages/HeadToHead.jsx'));
 const Drafts = lazy(() => import('./pages/Drafts.jsx'));
 const Keepers = lazy(() => import('./pages/Keepers.jsx'));
 const Login = lazy(() => import('./pages/Login.jsx'));
@@ -68,9 +67,10 @@ export default function App() {
           <Route element={<RequireAuth />}>
             <Route path="/" element={<Home />} />
             <Route path="/stats" element={<Stats />} />
+            <Route path="/insights" element={<Navigate to="/stats" replace />} />
+            <Route path="/h2h" element={<Navigate to="/stats" replace />} />
             <Route path="/wheel" element={<Wheel />} />
             <Route path="/rules" element={<Rules />} />
-            <Route path="/h2h" element={<HeadToHead />} />
             <Route path="/drafts" element={<Drafts />} />
             <Route path="/keepers" element={<Keepers />} />
             <Route path="*" element={<Navigate to="/" replace />} />

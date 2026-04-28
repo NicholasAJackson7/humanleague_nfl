@@ -98,7 +98,7 @@ export default function Home() {
       )}
 
       <div className="card-grid">
-        <FeatureLink to="/stats" title="Last season stats" body="Standings, blowouts, bench points and more." />
+        <FeatureLink to="/stats" title="League stats" body="Standings, highlights, all-time totals, head-to-head — all in one place." />
         <FeatureLink to="/rules" title="Rule suggestions" body="Suggest a rule and vote on what should change next season." />
       </div>
     </div>
