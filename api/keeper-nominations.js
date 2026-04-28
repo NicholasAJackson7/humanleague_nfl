@@ -112,25 +112,50 @@ export default async function handler(req, res) {
       let k2t;
       let k3t;
 
+      // Rule: keeper 1 is guaranteed and required. If a manager wants a
+      // second keeper they must nominate BOTH keeper 2 and keeper 3 (one of
+      // those two is then chosen by the league randomiser). Submitting just
+      // 1 of 2/3 is rejected.
       if (kind === 'roster') {
-        k1p = normStr(body.k1_player_id, 40);
-        k2p = normStr(body.k2_player_id, 40);
-        k3p = normStr(body.k3_player_id, 40);
-        if (!k1p || !k2p || !k3p) {
-          return send(res, 400, { error: 'Roster mode requires k1_player_id, k2_player_id, k3_player_id' });
+        k1p = normStr(body.k1_player_id, 40) || null;
+        k2p = normStr(body.k2_player_id, 40) || null;
+        k3p = normStr(body.k3_player_id, 40) || null;
+        if (!k1p) {
+          return send(res, 400, { error: 'Keeper 1 (guaranteed) is required.' });
+        }
+        if (Boolean(k2p) !== Boolean(k3p)) {
+          return send(res, 400, {
+            error: 'If you want a second keeper, fill in BOTH keeper 2 and keeper 3 (one is randomised).',
+          });
+        }
+        if (k2p && k3p) {
+          const ids = [k1p, k2p, k3p];
+          if (new Set(ids).size !== ids.length) {
+            return send(res, 400, { error: 'Pick three different players.' });
+          }
+        } else if (k1p === k2p || k1p === k3p) {
+          return send(res, 400, { error: 'Pick a different player for each keeper slot.' });
         }
         k1t = null;
         k2t = null;
         k3t = null;
       } else {
-        k1t = normStr(body.k1_text, 160);
-        k2t = normStr(body.k2_text, 160);
-        k3t = normStr(body.k3_text, 160);
-        if (!k1t || !k2t || !k3t) {
-          return send(res, 400, { error: 'Freeform mode requires k1_text, k2_text, k3_text' });
+        k1t = normStr(body.k1_text, 160) || null;
+        k2t = normStr(body.k2_text, 160) || null;
+        k3t = normStr(body.k3_text, 160) || null;
+        if (!k1t || k1t.length < 2) {
+          return send(res, 400, { error: 'Keeper 1 (guaranteed) is required (at least 2 characters).' });
         }
-        if (k1t.length < 2 || k2t.length < 2 || k3t.length < 2) {
-          return send(res, 400, { error: 'Each keeper line must be at least 2 characters' });
+        if (Boolean(k2t) !== Boolean(k3t)) {
+          return send(res, 400, {
+            error: 'If you want a second keeper, fill in BOTH keeper 2 and keeper 3 (one is randomised).',
+          });
+        }
+        if (k2t && k2t.length < 2) {
+          return send(res, 400, { error: 'Keeper 2 must be at least 2 characters.' });
+        }
+        if (k3t && k3t.length < 2) {
+          return send(res, 400, { error: 'Keeper 3 must be at least 2 characters.' });
         }
         k1p = null;
         k2p = null;

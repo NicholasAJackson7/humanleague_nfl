@@ -25,9 +25,9 @@ function formatRevealLabel(isoRaw) {
 
 function fmtNominationRow(n, lookup) {
   if (n.nomination_kind === 'freeform') {
-    return [n.k1_text, n.k2_text, n.k3_text].join(' · ');
+    return [n.k1_text, n.k2_text, n.k3_text].filter(Boolean).join(' · ');
   }
-  const ids = [n.k1_player_id, n.k2_player_id, n.k3_player_id];
+  const ids = [n.k1_player_id, n.k2_player_id, n.k3_player_id].filter(Boolean);
   if (!lookup) return ids.join(' · ');
   return ids
     .map((id) => {
@@ -66,7 +66,7 @@ export default function Keepers() {
 
   const [nameByUserId, setNameByUserId] = useState({});
   const [nominations, setNominations] = useState([]);
-  const [listLoading, setListLoading] = useState(() => !areKeeperNominationsHiddenInUi());
+  const [listLoading, setListLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [formMsg, setFormMsg] = useState(null);
   const [formErr, setFormErr] = useState(null);
@@ -135,12 +135,9 @@ export default function Keepers() {
     };
   }, []);
 
+  // Always fetch — even when the league table is gated by the reveal date,
+  // we still need the data to show the manager their own most recent picks.
   const loadNominations = useCallback(async () => {
-    if (areKeeperNominationsHiddenInUi()) {
-      setNominations([]);
-      setListLoading(false);
-      return;
-    }
     setListLoading(true);
     try {
       const res = await fetch('/api/keeper-nominations', { credentials: 'include' });
@@ -204,6 +201,20 @@ export default function Keepers() {
     return mine ? [mine] : sorted;
   }, [users, lockedSleeperUserId]);
 
+  const myNominations = useMemo(() => {
+    if (!sleeperUserId) return [];
+    return nominations.filter((n) => n.sleeper_user_id === sleeperUserId);
+  }, [nominations, sleeperUserId]);
+
+  const myLatestForSeason = useMemo(() => {
+    if (!seasonLabel) return null;
+    return myNominations.find((n) => n.source_season === seasonLabel) || null;
+  }, [myNominations, seasonLabel]);
+
+  const myLatestAny = useMemo(() => myNominations[0] || null, [myNominations]);
+
+  const myLatest = myLatestForSeason || myLatestAny;
+
   const rosterPickOptions = useMemo(() => {
     if (!sleeperUserId || !rosters.length) return [];
     const roster = rosters.find((x) => x.owner_id === sleeperUserId);
@@ -239,28 +250,40 @@ export default function Keepers() {
     };
 
     if (mode === 'roster') {
-      if (!k1 || !k2 || !k3) {
-        setFormErr('Pick all three keepers from your roster.');
+      if (!k1) {
+        setFormErr('Keeper 1 (guaranteed) is required — pick a player from your roster.');
         return;
       }
-      if (new Set([k1, k2, k3]).size !== 3) {
-        setFormErr('Pick three different players.');
+      const wantsExtras = Boolean(k2) || Boolean(k3);
+      if (wantsExtras && (!k2 || !k3)) {
+        setFormErr('To nominate a second keeper you must enter BOTH keeper 2 and 3 — one is randomised.');
         return;
+      }
+      if (k2 && k3) {
+        if (new Set([k1, k2, k3]).size !== 3) {
+          setFormErr('Pick three different players.');
+          return;
+        }
       }
       body.k1_player_id = k1;
-      body.k2_player_id = k2;
-      body.k3_player_id = k3;
+      body.k2_player_id = k2 || null;
+      body.k3_player_id = k3 || null;
     } else {
       const a = t1.trim();
       const b = t2.trim();
       const c = t3.trim();
-      if (a.length < 2 || b.length < 2 || c.length < 2) {
-        setFormErr('Enter all three keeper names (freeform).');
+      if (a.length < 2) {
+        setFormErr('Keeper 1 (guaranteed) is required (at least 2 characters).');
+        return;
+      }
+      const wantsExtras = b.length > 0 || c.length > 0;
+      if (wantsExtras && (b.length < 2 || c.length < 2)) {
+        setFormErr('To nominate a second keeper you must enter BOTH keeper 2 and 3 — one is randomised.');
         return;
       }
       body.k1_text = a;
-      body.k2_text = b;
-      body.k3_text = c;
+      body.k2_text = b ? b : null;
+      body.k3_text = c ? c : null;
     }
 
     setSubmitting(true);
@@ -300,8 +323,9 @@ export default function Keepers() {
         <span className="eyebrow">Off-season</span>
         <h1>Keeper nominations</h1>
         <p className="muted">
-          Log <strong>three</strong> keepers per manager per season. #1 is your lock; #2 and #3 are for your league’s
-          random rules — this page only stores what everyone picked so the commissioner can see it.
+          <strong>Keeper 1 is your guaranteed pick.</strong> If you want a second keeper, you must nominate{' '}
+          <strong>both</strong> keeper 2 <em>and</em> keeper 3 — we will have a coin flipping ceremony to decide who
+          you get to keep. Picking just one keeper is fine; picking exactly two is not allowed.
         </p>
       </header>
 
@@ -315,6 +339,39 @@ export default function Keepers() {
         <div className="card keepers-inline-notice" role="status">
           No linked league seasons found — roster source dropdown will be empty until the league chain resolves.
         </div>
+      )}
+
+      {sleeperUserId && !listLoading && (
+        <section className="card keepers-mine-card" aria-live="polite">
+          <p className="keepers-mine-eyebrow">Your last submitted picks</p>
+          {!myLatest && (
+            <p className="keepers-mine-empty">
+              You haven’t submitted any keeper nominations yet. Use the form below to lock in keeper 1 (and optionally
+              keepers 2 + 3 for the randomiser).
+            </p>
+          )}
+          {myLatest && (
+            <>
+              {!myLatestForSeason && (
+                <p className="keepers-mine-note">
+                  No picks for <strong>{seasonLabel || 'the selected season'}</strong> yet — showing your most recent
+                  submission for <strong>{myLatest.source_season}</strong>.
+                </p>
+              )}
+              <p className="keepers-mine-picks">{fmtNominationRow(myLatest, lookup)}</p>
+              <p className="keepers-mine-meta">
+                <span className="keepers-type-pill">
+                  {myLatest.nomination_kind}
+                </span>
+                <span>Season {myLatest.source_season}</span>
+                <span>
+                  Saved{' '}
+                  {myLatest.updated_at ? new Date(myLatest.updated_at).toLocaleString() : '—'}
+                </span>
+              </p>
+            </>
+          )}
+        </section>
       )}
 
       <div className="keepers-segment" role="group" aria-label="How to enter keepers">
@@ -386,8 +443,9 @@ export default function Keepers() {
         {mode === 'roster' && (
           <>
             <p className="keepers-hint">
-              Keeper 1 = guaranteed. Pick from the roster for the season above (first load may take a few seconds while
-              player names download from Sleeper).
+              Keeper 1 is your guaranteed pick. Want a second keeper? Pick <strong>both</strong> keeper 2 and 3 from
+              your roster — one of those two becomes your randomised second keeper. Leave 2 and 3 blank to keep just
+              one. (First load may take a few seconds while player names download from Sleeper.)
             </p>
             <label>
               <span className="keepers-label">Keeper 1 (guaranteed)</span>
@@ -401,9 +459,9 @@ export default function Keepers() {
               </select>
             </label>
             <label>
-              <span className="keepers-label">Keeper 2</span>
-              <select value={k2} onChange={(e) => setK2(e.target.value)} required disabled={!rosterPickOptions.length}>
-                <option value="">Select player…</option>
+              <span className="keepers-label">Keeper 2 (optional, randomised)</span>
+              <select value={k2} onChange={(e) => setK2(e.target.value)} disabled={!rosterPickOptions.length}>
+                <option value="">— skip (no second keeper) —</option>
                 {rosterPickOptions.map((o) => (
                   <option key={o.id} value={o.id}>
                     {o.label}
@@ -412,9 +470,9 @@ export default function Keepers() {
               </select>
             </label>
             <label>
-              <span className="keepers-label">Keeper 3</span>
-              <select value={k3} onChange={(e) => setK3(e.target.value)} required disabled={!rosterPickOptions.length}>
-                <option value="">Select player…</option>
+              <span className="keepers-label">Keeper 3 (optional, randomised)</span>
+              <select value={k3} onChange={(e) => setK3(e.target.value)} disabled={!rosterPickOptions.length}>
+                <option value="">— skip (no second keeper) —</option>
                 {rosterPickOptions.map((o) => (
                   <option key={o.id} value={o.id}>
                     {o.label}
@@ -431,17 +489,31 @@ export default function Keepers() {
 
         {mode === 'freeform' && (
           <>
+            <p className="keepers-hint">
+              Keeper 1 is your guaranteed pick. Want a second keeper? Enter <strong>both</strong> 2 and 3 — one of those
+              two becomes your randomised second keeper. Leave 2 and 3 blank to keep just one.
+            </p>
             <label>
               <span className="keepers-label">Keeper 1 (guaranteed)</span>
               <input value={t1} onChange={(e) => setT1(e.target.value)} maxLength={160} placeholder="e.g. Ja'Marr Chase" />
             </label>
             <label>
-              <span className="keepers-label">Keeper 2</span>
-              <input value={t2} onChange={(e) => setT2(e.target.value)} maxLength={160} />
+              <span className="keepers-label">Keeper 2 (optional, randomised)</span>
+              <input
+                value={t2}
+                onChange={(e) => setT2(e.target.value)}
+                maxLength={160}
+                placeholder="Leave blank to skip"
+              />
             </label>
             <label>
-              <span className="keepers-label">Keeper 3</span>
-              <input value={t3} onChange={(e) => setT3(e.target.value)} maxLength={160} />
+              <span className="keepers-label">Keeper 3 (optional, randomised)</span>
+              <input
+                value={t3}
+                onChange={(e) => setT3(e.target.value)}
+                maxLength={160}
+                placeholder="Leave blank to skip"
+              />
             </label>
           </>
         )}
