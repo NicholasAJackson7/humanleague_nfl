@@ -571,13 +571,18 @@ function CareerTable({ career, seasonCount }) {
                     ) : (
                       <span style={{ width: 22, height: 22, display: 'inline-block' }} />
                     )}
-                    <span
-                      className={`truncate${isReigning ? ' manager-on-fire' : ''}`}
-                      style={{ maxWidth: 160 }}
-                      title={isReigning ? `${r.userId} · reigning champion` : r.userId}
-                    >
-                      {r.displayName}
-                    </span>
+                    {isReigning ? (
+                      <span
+                        className="manager-on-fire"
+                        title={`${r.userId} · reigning champion`}
+                      >
+                        {r.displayName}
+                      </span>
+                    ) : (
+                      <span className="truncate" style={{ maxWidth: 160 }} title={r.userId}>
+                        {r.displayName}
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td
