@@ -4,6 +4,17 @@ import {
   getSessionPayload,
 } from '../_auth.js';
 
+const SLEEPER_ID_RE = /^[0-9a-z]{8,40}$/i;
+
+/** Effective sleeper id: explicit column wins, else username if it matches. */
+function effectiveSleeperUserId(row) {
+  const sid = row.sleeper_user_id;
+  if (typeof sid === 'string' && SLEEPER_ID_RE.test(sid)) return sid;
+  const name = row.username;
+  if (typeof name === 'string' && SLEEPER_ID_RE.test(name)) return name;
+  return null;
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method !== 'GET') {
@@ -45,7 +56,7 @@ export default async function handler(req, res) {
         user: {
           username: row.username,
           role: row.role,
-          sleeperUserId: row.sleeper_user_id,
+          sleeperUserId: effectiveSleeperUserId(row),
         },
       });
     }

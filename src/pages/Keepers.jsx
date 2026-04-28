@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { areKeeperNominationsHiddenInUi, config } from '../config.js';
+import { useAuth } from '../AuthContext.jsx';
 import {
   resolveLeagueHistoryChain,
   fetchUsers,
@@ -37,6 +38,12 @@ function fmtNominationRow(n, lookup) {
 }
 
 export default function Keepers() {
+  const { user: authUser } = useAuth();
+  const lockedSleeperUserId =
+    authUser && authUser.role !== 'commissioner' && typeof authUser.sleeperUserId === 'string'
+      ? authUser.sleeperUserId
+      : null;
+
   const [chain, setChain] = useState([]);
   const [chainLoading, setChainLoading] = useState(true);
   const [lookup, setLookup] = useState(null);
@@ -152,6 +159,12 @@ export default function Keepers() {
   }, [loadNominations]);
 
   useEffect(() => {
+    if (lockedSleeperUserId && sleeperUserId !== lockedSleeperUserId) {
+      setSleeperUserId(lockedSleeperUserId);
+    }
+  }, [lockedSleeperUserId, sleeperUserId]);
+
+  useEffect(() => {
     if (!seasonLeagueId) {
       setUsers([]);
       setRosters([]);
@@ -181,12 +194,15 @@ export default function Keepers() {
   }, [seasonLeagueId]);
 
   const userOptions = useMemo(() => {
-    return [...users].sort((a, b) => {
+    const sorted = [...users].sort((a, b) => {
       const na = (a.metadata?.team_name || a.display_name || a.user_id || '').toLowerCase();
       const nb = (b.metadata?.team_name || b.display_name || b.user_id || '').toLowerCase();
       return na.localeCompare(nb);
     });
-  }, [users]);
+    if (!lockedSleeperUserId) return sorted;
+    const mine = sorted.find((u) => u.user_id === lockedSleeperUserId);
+    return mine ? [mine] : sorted;
+  }, [users, lockedSleeperUserId]);
 
   const rosterPickOptions = useMemo(() => {
     if (!sleeperUserId || !rosters.length) return [];
@@ -343,7 +359,7 @@ export default function Keepers() {
           <span className="keepers-label">You are (Sleeper manager)</span>
           <select
             value={sleeperUserId}
-            disabled={leagueLoading || !userOptions.length}
+            disabled={leagueLoading || !userOptions.length || Boolean(lockedSleeperUserId)}
             onChange={(e) => setSleeperUserId(e.target.value)}
             required
           >
@@ -354,6 +370,17 @@ export default function Keepers() {
               </option>
             ))}
           </select>
+          {lockedSleeperUserId && (
+            <p className="keepers-hint keepers-hint--inline">
+              You can only nominate keepers for your own team.
+            </p>
+          )}
+          {lockedSleeperUserId && !leagueLoading && users.length > 0 && !users.some((u) => u.user_id === lockedSleeperUserId) && (
+            <p className="keepers-warn">
+              Your account isn’t in this season’s roster. Pick a different season or ask the commissioner to check your
+              Sleeper id.
+            </p>
+          )}
         </label>
 
         {mode === 'roster' && (

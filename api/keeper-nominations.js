@@ -1,12 +1,27 @@
 import { getSql, rateLimit, clientIp, readJsonBody, send } from './_db.js';
-import { assertSiteAuth } from './_auth.js';
+import { assertSiteAuth, getSessionPayload } from './_auth.js';
 
 const USER_ID_RE = /^[0-9a-z]{8,40}$/i;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function normStr(v, max) {
   const s = v == null ? '' : String(v).trim();
   if (s.length > max) return null;
   return s;
+}
+
+/**
+ * Effective sleeper_user_id the account is allowed to act as. Prefers the
+ * column, falls back to username when the username already looks like a
+ * sleeper id (commissioner workflow: usernames mirror sleeper ids).
+ */
+function effectiveSleeperUserId(row) {
+  if (!row) return null;
+  const sid = row.sleeper_user_id;
+  if (typeof sid === 'string' && USER_ID_RE.test(sid)) return sid;
+  const name = row.username;
+  if (typeof name === 'string' && USER_ID_RE.test(name)) return name;
+  return null;
 }
 
 export default async function handler(req, res) {
@@ -51,6 +66,35 @@ export default async function handler(req, res) {
       const sleeperUserId = normStr(body.sleeper_user_id, 80);
       if (!sleeperUserId || !USER_ID_RE.test(sleeperUserId)) {
         return send(res, 400, { error: 'sleeper_user_id is required' });
+      }
+
+      // Member accounts may only nominate for their own team. Commissioners
+      // can still edit on anyone's behalf. Site-password-only sessions (no
+      // member account) keep the previous open behaviour for backwards compat.
+      const session = getSessionPayload(req);
+      const sub = session && typeof session.sub === 'string' ? session.sub : null;
+      if (sub && UUID_RE.test(sub)) {
+        const userRows = await sql`
+          select username, role, sleeper_user_id, disabled
+          from app_users
+          where id = ${sub}
+          limit 1
+        `;
+        const account = userRows[0];
+        if (!account || account.disabled) {
+          return send(res, 401, { error: 'Account is not active' });
+        }
+        if (account.role !== 'commissioner') {
+          const allowed = effectiveSleeperUserId(account);
+          if (!allowed) {
+            return send(res, 403, {
+              error: 'Your account is not linked to a Sleeper id yet — ask the commissioner to set one.',
+            });
+          }
+          if (allowed !== sleeperUserId) {
+            return send(res, 403, { error: 'You can only nominate keepers for your own team.' });
+          }
+        }
       }
 
       const sourceSeason = normStr(body.source_season, 8);
