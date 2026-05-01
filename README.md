@@ -7,7 +7,8 @@ A mobile-first Vite + React app for a Sleeper fantasy football league.
 - `/drafts` — **Draft board** per linked season: teams as columns, rounds as rows (Sleeper picks + `draft_order`)
 - `/rules` — Rule suggestions, voting, and **per-rule discussion** threads. One vote and one suggestion per logged-in account; the suggester is implied from the account, no free-text name field.
 - `/keepers` — Manager keeper nominations from your Sleeper roster (logged-in managers can only nominate for their own team; commissioners can edit on anyone's behalf). Rule: keeper 1 is guaranteed; if you want a second keeper, you must pick both keeper 2 and keeper 3 — one is randomised at the league ceremony. Optional `VITE_KEEPERS_REVEAL_AT` (ISO 8601) hides the **All nominations** table until that time; your own latest pick is always visible to you. The API still returns data if called directly, so treat this as a league courtesy, not a secret lock.
-- `/wheel` — Spin-the-wheel keeper picker (weighted, with history). Not in the main nav; reach it via direct URL.
+- `/rankings` — **Expert player rankings**: FantasyPros Expert Consensus redraft **overall** cheat sheet (filter by position with pills — no kickers; **ALL** omits kickers from the table), **plus a 1QB keeper trade-value chart** (player age + dynasty positional rank from the same mirror). Sourced from the [DynastyProcess open-data repo](https://github.com/dynastyprocess/data) (`db_fpecr_latest.csv`, `values.csv`, and `db_playerids.csv` for the Sleeper-id join), cached for 1h server-side with a 24h stale-while-error window. No API keys; nothing to configure.
+
 
 Hosted on Vercel. Voting state lives in Neon Postgres (free tier). Sleeper data is read from the public Sleeper API.
 
@@ -123,6 +124,7 @@ api/                Vercel serverless functions (Node 18, ESM)
   votes.js            POST, DELETE — keyed to the logged-in `app_users.id`
   rule-posts.js       GET, POST, DELETE — forum messages under a rule
   keeper-nominations.js  GET, POST — Sleeper-roster keeper picks; managers can only edit their own
+  rankings.js         GET — proxies + caches FantasyPros ECR via DynastyProcess open-data
 db/
   schema.sql          first-time database setup (idempotent)
   migrations/         additive schema changes; apply with `npm run db:migrate -- <file>`
@@ -190,3 +192,13 @@ vite.config.js
 - Real-time vote updates (refetch on action)
 - Optimal-lineup analysis (would require fetching the full Sleeper player database)
 - Offline mode / service worker
+
+## Expert rankings (`/rankings`)
+
+The rankings page is a thin viewer over an open mirror of FantasyPros ECR.
+
+- **Source:** [`dynastyprocess/data`](https://github.com/dynastyprocess/data) — `db_fpecr_latest.csv` (~700 KB, weekly cron), `values.csv` (~60 KB, the keeper/dynasty trade-value chart), and `db_playerids.csv` (~2.5 MB) for the Sleeper ↔ FantasyPros id join.
+- **Server:** `api/rankings.js` fetches all three files on first call, parses + joins in memory, and only retains **`redraft-overall`** from the ECR CSV plus **`keeper-values-1qb`** built from `values.csv` (trade value, age, `draft_year`, dynasty positional rank). Unknown `page_type` query params fall back to `redraft-overall`. Cache is held in module scope for **1 hour**; on upstream failure the function serves the last-known-good response for up to **24 hours**. The HTTP response also sets `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400` so Vercel's edge cache amplifies the in-process cache across function instances.
+- **Client:** `src/pages/Rankings.jsx` — choose **Redraft rankings** vs **Keeper trade values**, filter by position (ALL / QB / RB / WR / TE / DST — no kickers), search by name or team. With **ALL** selected, kickers are omitted from the list entirely. The table swaps trailing columns — Bye / SD / Best-Worst / Owned for redraft ECR, Age / Value / Dyn-Rank / Pos-Rank for keeper values. The page header displays the upstream `scrape_date` and warns when it's more than 14 days old.
+- **Auth:** Same `assertSiteAuth` gate as the rest of the API — the page is read-only and accessible to any logged-in member or shared-password session.
+- **No env vars required.** This feature has no secrets, no DB, no migrations.
