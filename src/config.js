@@ -4,6 +4,14 @@ export const config = {
   keepersRevealAt: (import.meta.env.VITE_KEEPERS_REVEAL_AT || '').trim(),
 };
 
+/** Human League roster/draft shape — used for keeper cost vs consensus view on Rankings. */
+export const leagueFormat = {
+  teamCount: 10,
+  draftRounds: 14,
+  /** Waivers / trades: sacrifice this round if kept (no draft slot in league startup). */
+  undraftedKeeperRound: 14,
+};
+
 export function isConfigured() {
   return Boolean(config.leagueId);
 }

@@ -3,18 +3,10 @@ import { assertSiteAuth } from './_auth.js';
 
 const ECR_URL = 'https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_fpecr_latest.csv';
 const IDS_URL = 'https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv';
-const VALUES_URL = 'https://raw.githubusercontent.com/dynastyprocess/data/master/files/values.csv';
 
-/** Only page types the Human League app exposes; shrinks in-memory cache vs parsing the full upstream CSV. */
 const ECR_PAGE_TYPES = new Set(['redraft-overall']);
 
-/**
- * Synthetic page types served from `values.csv` (DynastyProcess trade-value chart, 1QB only).
- * Same JSON shape as the ECR page types, with extra fields `value`, `age`, `ecr_pos`.
- */
-const VALUES_PAGE_TYPES = new Set(['keeper-values-1qb']);
-
-const ALLOWED_PAGE_TYPES = new Set([...ECR_PAGE_TYPES, ...VALUES_PAGE_TYPES]);
+const ALLOWED_PAGE_TYPES = new Set([...ECR_PAGE_TYPES]);
 
 const DEFAULT_PAGE_TYPE = 'redraft-overall';
 
@@ -27,7 +19,6 @@ let _cache = {
   ecrByPageType: null,
   idMap: null,
   scrapeDate: null,
-  valuesScrapeDate: null,
 };
 let _inflight = null;
 
@@ -110,13 +101,8 @@ async function fetchText(url) {
 }
 
 async function buildCache() {
-  const [ecrText, idsText, valuesText] = await Promise.all([
-    fetchText(ECR_URL),
-    fetchText(IDS_URL),
-    fetchText(VALUES_URL),
-  ]);
+  const [ecrText, idsText] = await Promise.all([fetchText(ECR_URL), fetchText(IDS_URL)]);
 
-  // Build FP id -> sleeper id map first (also keep position/team as a fallback for when ECR is missing them).
   const idRows = rowsToObjects(parseCsv(idsText));
   const idMap = new Map();
   for (const r of idRows) {
@@ -167,50 +153,7 @@ async function buildCache() {
     list.sort((a, b) => a.ecr - b.ecr);
   }
 
-  // Build the synthetic keeper-values buckets from values.csv. Same record shape as ECR
-  // entries (so the client renders one table) plus value/age/ecr_pos for keeper context.
-  const valueRows = rowsToObjects(parseCsv(valuesText));
-  const buildValuesBucket = (valueKey, ecrKey) => {
-    const players = [];
-    for (const r of valueRows) {
-      const val = toNum(r[valueKey]);
-      if (val == null) continue;
-      const dynastyEcr = toNum(r[ecrKey]);
-      const fpId = isMissing(r.fp_id) ? null : String(r.fp_id);
-      players.push({
-        ecr: dynastyEcr, // dynasty consensus rank (1QB chart)
-        sd: null,
-        best: null,
-        worst: null,
-        name: r.player || '',
-        pos: r.pos || '',
-        team: r.team || '',
-        bye: null,
-        owned_avg: null,
-        rank_delta: null,
-        value: val,
-        age: toNum(r.age),
-        draft_year: toNum(r.draft_year),
-        ecr_pos: toNum(r.ecr_pos),
-        fp_id: fpId,
-        sleeper_id: fpId ? idMap.get(fpId) || null : null,
-      });
-    }
-    players.sort((a, b) => b.value - a.value);
-    return players;
-  };
-
-  ecrByPageType.set('keeper-values-1qb', buildValuesBucket('value_1qb', 'ecr_1qb'));
-
-  let valuesScrapeDate = null;
-  for (const r of valueRows) {
-    if (r.scrape_date) {
-      valuesScrapeDate = r.scrape_date;
-      break;
-    }
-  }
-
-  return { ecrByPageType, idMap, scrapeDate, valuesScrapeDate, fetchedAt: Date.now() };
+  return { ecrByPageType, idMap, scrapeDate, fetchedAt: Date.now() };
 }
 
 async function getCache() {
@@ -225,7 +168,6 @@ async function getCache() {
       _cache = next;
       return _cache;
     } catch (err) {
-      // serve stale within STALE_TTL_MS so a transient upstream blip doesn't break the page
       if (_cache.ecrByPageType && now - _cache.fetchedAt < STALE_TTL_MS) {
         console.warn('rankings: upstream fetch failed, serving stale cache', err);
         return _cache;
@@ -253,7 +195,6 @@ export default async function handler(req, res) {
 
     const cache = await getCache();
     const players = cache.ecrByPageType.get(pageType) || [];
-    const isValues = VALUES_PAGE_TYPES.has(pageType);
 
     res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
     res.status(200);
@@ -261,7 +202,7 @@ export default async function handler(req, res) {
     res.send(
       JSON.stringify({
         page_type: pageType,
-        scrape_date: isValues ? cache.valuesScrapeDate || cache.scrapeDate : cache.scrapeDate,
+        scrape_date: cache.scrapeDate,
         fetched_at: cache.fetchedAt,
         count: players.length,
         players,
