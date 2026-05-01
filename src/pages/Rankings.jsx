@@ -2,29 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react';
 import './Rankings.css';
 
 const FORMAT_OPTIONS = [
-  { value: 'keeper-values-1qb', label: 'Keeper values — 1QB', scope: 'values' },
-  { value: 'keeper-values-2qb', label: 'Keeper values — Superflex', scope: 'values' },
-  { value: 'redraft-overall', label: 'Redraft — Overall', scope: 'redraft' },
-  { value: 'redraft-qb', label: 'Redraft — QB', scope: 'redraft' },
-  { value: 'redraft-rb', label: 'Redraft — RB', scope: 'redraft' },
-  { value: 'redraft-wr', label: 'Redraft — WR', scope: 'redraft' },
-  { value: 'redraft-te', label: 'Redraft — TE', scope: 'redraft' },
-  { value: 'redraft-k', label: 'Redraft — K', scope: 'redraft' },
-  { value: 'redraft-dst', label: 'Redraft — DST', scope: 'redraft' },
-  { value: 'dynasty-overall', label: 'Dynasty — Overall', scope: 'dynasty' },
-  { value: 'dynasty-qb', label: 'Dynasty — QB', scope: 'dynasty' },
-  { value: 'dynasty-rb', label: 'Dynasty — RB', scope: 'dynasty' },
-  { value: 'dynasty-wr', label: 'Dynasty — WR', scope: 'dynasty' },
-  { value: 'dynasty-te', label: 'Dynasty — TE', scope: 'dynasty' },
-  { value: 'dynasty-rk', label: 'Dynasty — Rookies', scope: 'dynasty' },
-  { value: 'best-overall', label: 'Best Ball — Overall', scope: 'best' },
+  { value: 'redraft-overall', label: 'Redraft rankings' },
+  { value: 'keeper-values-1qb', label: 'Keeper values' },
 ];
 
 function isKeeperValuesFormat(format) {
-  return format === 'keeper-values-1qb' || format === 'keeper-values-2qb';
+  return format === 'keeper-values-1qb';
 }
 
-const POSITION_FILTERS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DST'];
+/** League uses flex spots only — no kickers in filters or UX. */
+const POSITION_FILTERS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'DST'];
 
 const DEFAULT_FORMAT = 'redraft-overall';
 
@@ -76,22 +63,17 @@ export default function Rankings() {
   }, [format]);
 
   const isValuesFormat = isKeeperValuesFormat(format);
-  const isPositionalEcrFormat =
-    !isValuesFormat &&
-    format !== 'redraft-overall' &&
-    format !== 'dynasty-overall' &&
-    format !== 'best-overall';
-  const showPositionPills = !isPositionalEcrFormat;
 
   const filtered = useMemo(() => {
     if (state.status !== 'ready') return [];
     const term = search.trim().toLowerCase();
     return state.data.players.filter((p) => {
-      if (showPositionPills && position !== 'ALL' && p.pos !== position) return false;
+      if (position === 'ALL' && p.pos === 'K') return false;
+      if (position !== 'ALL' && p.pos !== position) return false;
       if (term && !p.name.toLowerCase().includes(term) && !p.team.toLowerCase().includes(term)) return false;
       return true;
     });
-  }, [state, search, position, showPositionPills]);
+  }, [state, search, position]);
 
   const ageDays = state.status === 'ready' ? ageInDays(state.data.scrape_date) : null;
   const isStale = ageDays != null && ageDays > 14;
@@ -127,7 +109,7 @@ export default function Rankings() {
 
       <section className="card rankings-controls">
         <label className="rankings-control">
-          <span className="rankings-control__label">Format</span>
+          <span className="rankings-control__label">View</span>
           <select value={format} onChange={(e) => setFormat(e.target.value)}>
             {FORMAT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -137,27 +119,23 @@ export default function Rankings() {
           </select>
         </label>
 
-        {showPositionPills && (
-          <div className="rankings-control rankings-control--pills">
-            <span className="rankings-control__label">Position</span>
-            <div className="rankings-pills" role="tablist" aria-label="Filter by position">
-              {(isValuesFormat ? POSITION_FILTERS.filter((p) => p !== 'K' && p !== 'DST') : POSITION_FILTERS).map(
-                (p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    role="tab"
-                    aria-selected={position === p}
-                    className={'rankings-pill' + (position === p ? ' rankings-pill--active' : '')}
-                    onClick={() => setPosition(p)}
-                  >
-                    {p}
-                  </button>
-                ),
-              )}
-            </div>
+        <div className="rankings-control rankings-control--pills">
+          <span className="rankings-control__label">Position</span>
+          <div className="rankings-pills" role="tablist" aria-label="Filter by position">
+            {POSITION_FILTERS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                role="tab"
+                aria-selected={position === p}
+                className={'rankings-pill' + (position === p ? ' rankings-pill--active' : '')}
+                onClick={() => setPosition(p)}
+              >
+                {p}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
 
         <label className="rankings-control rankings-control--search">
           <span className="rankings-control__label">Search</span>

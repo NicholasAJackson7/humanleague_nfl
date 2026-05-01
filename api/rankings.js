@@ -5,32 +5,14 @@ const ECR_URL = 'https://raw.githubusercontent.com/dynastyprocess/data/master/fi
 const IDS_URL = 'https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv';
 const VALUES_URL = 'https://raw.githubusercontent.com/dynastyprocess/data/master/files/values.csv';
 
-const ECR_PAGE_TYPES = new Set([
-  'redraft-overall',
-  'redraft-op',
-  'redraft-qb',
-  'redraft-rb',
-  'redraft-wr',
-  'redraft-te',
-  'redraft-k',
-  'redraft-dst',
-  'dynasty-overall',
-  'dynasty-op',
-  'dynasty-qb',
-  'dynasty-rb',
-  'dynasty-wr',
-  'dynasty-te',
-  'dynasty-k',
-  'dynasty-dst',
-  'dynasty-rk',
-  'best-overall',
-]);
+/** Only page types the Human League app exposes; shrinks in-memory cache vs parsing the full upstream CSV. */
+const ECR_PAGE_TYPES = new Set(['redraft-overall']);
 
 /**
- * Synthetic page types served from `values.csv` (DynastyProcess trade-value chart).
+ * Synthetic page types served from `values.csv` (DynastyProcess trade-value chart, 1QB only).
  * Same JSON shape as the ECR page types, with extra fields `value`, `age`, `ecr_pos`.
  */
-const VALUES_PAGE_TYPES = new Set(['keeper-values-1qb', 'keeper-values-2qb']);
+const VALUES_PAGE_TYPES = new Set(['keeper-values-1qb']);
 
 const ALLOWED_PAGE_TYPES = new Set([...ECR_PAGE_TYPES, ...VALUES_PAGE_TYPES]);
 
@@ -196,7 +178,7 @@ async function buildCache() {
       const dynastyEcr = toNum(r[ecrKey]);
       const fpId = isMissing(r.fp_id) ? null : String(r.fp_id);
       players.push({
-        ecr: dynastyEcr, // dynasty consensus rank (1qb or sf)
+        ecr: dynastyEcr, // dynasty consensus rank (1QB chart)
         sd: null,
         best: null,
         worst: null,
@@ -219,7 +201,6 @@ async function buildCache() {
   };
 
   ecrByPageType.set('keeper-values-1qb', buildValuesBucket('value_1qb', 'ecr_1qb'));
-  ecrByPageType.set('keeper-values-2qb', buildValuesBucket('value_2qb', 'ecr_2qb'));
 
   let valuesScrapeDate = null;
   for (const r of valueRows) {
