@@ -8,7 +8,7 @@ A mobile-first Vite + React app for a Sleeper fantasy football league.
 - `/rules` — Rule suggestions, voting, and **per-rule discussion** threads. One vote and one suggestion per logged-in account; the suggester is implied from the account, no free-text name field.
 - `/keepers` — Manager keeper nominations from your Sleeper roster (logged-in managers can only nominate for their own team; commissioners can edit on anyone's behalf). Rule: keeper 1 is guaranteed; if you want a second keeper, you must pick both keeper 2 and keeper 3 — one is randomised at the league ceremony. Optional `VITE_KEEPERS_REVEAL_AT` (ISO 8601) hides the **All nominations** table until that time; your own latest pick is always visible to you. The API still returns data if called directly, so treat this as a league courtesy, not a secret lock.
 - `/rankings` — **Expert player rankings**: FantasyPros Expert Consensus redraft **overall** cheat sheet (filter by position with pills — no kickers; **ALL** omits kickers from the table), **plus a 1QB keeper trade-value chart** (player age + dynasty positional rank from the same mirror). Sourced from the [DynastyProcess open-data repo](https://github.com/dynastyprocess/data) (`db_fpecr_latest.csv`, `values.csv`, and `db_playerids.csv` for the Sleeper-id join), cached for 1h server-side with a 24h stale-while-error window. No API keys; nothing to configure.
-- `/wheel` — Spin-the-wheel keeper picker (weighted, with history). Not in the main nav; reach it via direct URL.
+
 
 Hosted on Vercel. Voting state lives in Neon Postgres (free tier). Sleeper data is read from the public Sleeper API.
 
