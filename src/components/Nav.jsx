@@ -6,6 +6,7 @@ import './Nav.css';
 const items = [
   { to: '/', label: 'Home', icon: HomeIcon, end: true },
   { to: '/stats', label: 'Stats', icon: StatsIcon },
+  { to: '/rankings', label: 'Ranks', icon: RankingsIcon },
   { to: '/drafts', label: 'Draft', icon: DraftIcon },
   { to: '/keepers', label: 'Keepers', icon: KeeperIcon },
   { to: '/rules', label: 'Rules', icon: RulesIcon },
@@ -106,6 +107,17 @@ function RulesIcon() {
       <path d="M14 4v5h5" />
       <path d="M9 14h6" />
       <path d="M9 18h4" />
+    </svg>
+  );
+}
+
+function RankingsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 20V10" />
+      <path d="M10 20V4" />
+      <path d="M16 20v-7" />
+      <path d="M22 20H2" />
     </svg>
   );
 }
