@@ -71,6 +71,30 @@ function fmtClock(seconds) {
   return `${m}:${r.toString().padStart(2, '0')}`;
 }
 
+/** Positive if nomination a should win over b (higher source_season, then newer updated_at). */
+function compareNominationRecency(a, b) {
+  const sa = Number(a.source_season);
+  const sb = Number(b.source_season);
+  const na = Number.isFinite(sa) ? sa : Number.NEGATIVE_INFINITY;
+  const nb = Number.isFinite(sb) ? sb : Number.NEGATIVE_INFINITY;
+  if (na !== nb) return na - nb;
+  const ta = Date.parse(a.updated_at || a.submitted_at || 0) || 0;
+  const tb = Date.parse(b.updated_at || b.submitted_at || 0) || 0;
+  return ta - tb;
+}
+
+/** One nomination per sleeper_user_id — keeps the most recent by season then timestamp. */
+function pickLatestNominationPerUser(rows) {
+  const byUser = new Map();
+  for (const n of rows) {
+    const uid = n.sleeper_user_id;
+    if (!uid) continue;
+    const prev = byUser.get(uid);
+    if (!prev || compareNominationRecency(n, prev) > 0) byUser.set(uid, n);
+  }
+  return [...byUser.values()];
+}
+
 /** Shared draft grid (snake rounds × teams), with optional caption copy. */
 function MockDraftBoardPanel({
   slotOrderUserIds,
@@ -202,7 +226,7 @@ export default function MockDraft() {
   const { user: authUser } = useAuth();
 
   const nominationsHidden = areKeeperNominationsHiddenInUi();
-  const nominationsHiddenForPage = useDevKeeperMocks ? false : nominationsHidden;
+  const isCommissioner = Boolean(authUser && authUser.role === 'commissioner');
 
   const lockedSleeperUserId =
     authUser && authUser.role !== 'commissioner' && typeof authUser.sleeperUserId === 'string'
@@ -220,7 +244,7 @@ export default function MockDraft() {
   const [rosters, setRosters] = useState([]);
   const [rostersLoading, setRostersLoading] = useState(false);
 
-  const [nominations, setNominations] = useState([]);
+  const [nominationRowsRaw, setNominationRowsRaw] = useState([]);
   const [nomLoading, setNomLoading] = useState(false);
 
   const [lookup, setLookup] = useState(null);
@@ -401,8 +425,8 @@ export default function MockDraft() {
     if (useDevKeeperMocks) {
       return;
     }
-    if (!seasonLabel || nominationsHidden) {
-      setNominations([]);
+    if (!seasonLabel) {
+      setNominationRowsRaw([]);
       return;
     }
     let cancelled = false;
@@ -413,10 +437,10 @@ export default function MockDraft() {
         const data = await res.json().catch(() => ({}));
         if (!cancelled && res.ok) {
           const rows = Array.isArray(data.nominations) ? data.nominations : [];
-          setNominations(rows.filter((n) => String(n.source_season) === seasonLabel));
-        } else if (!cancelled) setNominations([]);
+          setNominationRowsRaw(rows);
+        } else if (!cancelled) setNominationRowsRaw([]);
       } catch {
-        if (!cancelled) setNominations([]);
+        if (!cancelled) setNominationRowsRaw([]);
       } finally {
         if (!cancelled) setNomLoading(false);
       }
@@ -424,14 +448,14 @@ export default function MockDraft() {
     return () => {
       cancelled = true;
     };
-  }, [seasonLabel, nominationsHidden]);
+  }, [seasonLabel, useDevKeeperMocks]);
 
   useEffect(() => {
     if (!useDevKeeperMocks || !seasonLabel) {
-      if (useDevKeeperMocks) setNominations([]);
+      if (useDevKeeperMocks) setNominationRowsRaw([]);
       return;
     }
-    setNominations(
+    setNominationRowsRaw(
       buildDevMockKeeperNominations(
         users,
         rosters,
@@ -444,7 +468,7 @@ export default function MockDraft() {
   }, [useDevKeeperMocks, seasonLabel, users, rosters, keeperCostDraft]);
 
   useEffect(() => {
-    if (!config.leagueId || nominationsHiddenForPage) {
+    if (!config.leagueId) {
       setRankings({ status: 'idle' });
       return;
     }
@@ -465,20 +489,42 @@ export default function MockDraft() {
     return () => {
       cancelled = true;
     };
-  }, [nominationsHiddenForPage, config.leagueId]);
+  }, [config.leagueId]);
+
+  const nominationsEffective = useMemo(() => {
+    if (useDevKeeperMocks) return nominationRowsRaw;
+    if (!seasonLabel || nominationRowsRaw.length === 0) return [];
+
+    if (!nominationsHidden) {
+      const seasonRows = nominationRowsRaw.filter((n) => String(n.source_season) === seasonLabel);
+      return pickLatestNominationPerUser(seasonRows);
+    }
+
+    let pool = nominationRowsRaw;
+    if (!isCommissioner && lockedSleeperUserId) {
+      pool = nominationRowsRaw.filter((n) => n.sleeper_user_id === lockedSleeperUserId);
+    } else if (!isCommissioner && !lockedSleeperUserId) {
+      return [];
+    }
+
+    return pickLatestNominationPerUser(pool);
+  }, [
+    nominationRowsRaw,
+    nominationsHidden,
+    seasonLabel,
+    useDevKeeperMocks,
+    isCommissioner,
+    lockedSleeperUserId,
+  ]);
 
   const nominationByUserId = useMemo(() => {
     const m = new Map();
-    for (const n of nominations) {
+    for (const n of nominationsEffective) {
       const uid = n.sleeper_user_id;
-      if (!uid) continue;
-      const prev = m.get(uid);
-      if (!prev || new Date(n.updated_at || n.submitted_at || 0) > new Date(prev.updated_at || prev.submitted_at || 0)) {
-        m.set(uid, n);
-      }
+      if (uid) m.set(uid, n);
     }
     return m;
-  }, [nominations]);
+  }, [nominationsEffective]);
 
   const sortedUsers = useMemo(() => {
     return [...users].sort((a, b) => {
@@ -518,10 +564,7 @@ export default function MockDraft() {
   const towardSeason =
     chain[0] && chain[0].season != null ? Number(chain[0].season) + 1 : null;
 
-  const loadingAny =
-    chainLoading ||
-    usersLoading ||
-    (useDevKeeperMocks ? rostersLoading : !nominationsHiddenForPage && nomLoading);
+  const loadingAny = chainLoading || usersLoading || (useDevKeeperMocks ? rostersLoading : nomLoading);
 
   const randomizeOrder = useCallback(() => {
     if (timedDraftActive) return;
@@ -797,21 +840,37 @@ export default function MockDraft() {
         </section>
       )}
 
-      {config.leagueId && !chainLoading && chain[0] && nominationsHiddenForPage && (
-        <section className="card mock-draft-card">
-          <div className="keepers-reveal-gate" role="status">
-            <p className="keepers-reveal-gate__title">Nominations hidden</p>
-            <p className="keepers-reveal-gate__body">
-              The league-wide keeper board stays private until{' '}
-              <strong>{config.keepersRevealAt ? formatRevealLabel(config.keepersRevealAt) : 'the reveal date'}</strong>.
-              After that, this page lists each manager&apos;s nominated keepers as the prefilled roster for mock drafts.
-            </p>
-          </div>
-        </section>
-      )}
-
-      {config.leagueId && !chainLoading && chain[0] && !nominationsHiddenForPage && (
+      {config.leagueId && !chainLoading && chain[0] && (
         <>
+          {nominationsHidden && !useDevKeeperMocks && (
+            <section className="card mock-draft-card">
+              <div className="keepers-reveal-gate" role="status">
+                <p className="keepers-reveal-gate__title">Mock draft before nominations go public</p>
+                <p className="keepers-reveal-gate__body">
+                  Keeper nominations stay hidden until{' '}
+                  <strong>{config.keepersRevealAt ? formatRevealLabel(config.keepersRevealAt) : 'the reveal date'}</strong>.
+                  {isCommissioner ? (
+                    <>
+                      {' '}
+                      This simulator uses each manager&apos;s <strong>latest nomination on file</strong> (any season) for
+                      keeper slots.
+                    </>
+                  ) : lockedSleeperUserId ? (
+                    <>
+                      {' '}
+                      Only <strong>your</strong> latest nomination fills keeper spots on your team; other teams simulate as if
+                      they have no keepers until reveal.
+                    </>
+                  ) : (
+                    <>
+                      {' '}
+                      Sign in with a member account that has a Sleeper id linked so your keeper nominations load here.
+                    </>
+                  )}
+                </p>
+              </div>
+            </section>
+          )}
           {useDevKeeperMocks && (
             <div className="mock-draft-dev-banner" role="status">
               <strong>Dev mode:</strong> mocked keepers use real startup cost rounds when loaded — at most one keeper per cost
@@ -856,11 +915,21 @@ export default function MockDraft() {
                     const label = u.metadata?.team_name || u.display_name || u.user_id;
                     const nom = nominationByUserId.get(u.user_id);
                     const keeperLine = nom ? fmtNominationRow(nom, lookup) : null;
+                    const hideOthersKeepers =
+                      nominationsHidden &&
+                      !useDevKeeperMocks &&
+                      !isCommissioner &&
+                      lockedSleeperUserId &&
+                      u.user_id !== lockedSleeperUserId;
                     return (
                       <li key={u.user_id} className="card mock-draft-team-card">
                         <h2 className="mock-draft-team-card__title">{label}</h2>
                         {!nom && (
-                          <p className="muted mock-draft-team-card__keepers">No nomination for this season yet.</p>
+                          <p className="muted mock-draft-team-card__keepers">
+                            {hideOthersKeepers
+                              ? 'Hidden until nominations are revealed — mock draft assumes no keepers for this team.'
+                              : 'No nomination on file for this mock draft.'}
+                          </p>
                         )}
                         {nom && !keeperLine && (
                           <p className="muted mock-draft-team-card__keepers">

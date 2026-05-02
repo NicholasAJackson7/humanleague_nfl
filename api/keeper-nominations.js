@@ -4,6 +4,14 @@ import { assertSiteAuth, getSessionPayload } from './_auth.js';
 const USER_ID_RE = /^[0-9a-z]{8,40}$/i;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+/** Same instant semantics as client `VITE_KEEPERS_REVEAL_AT`; set `KEEPERS_REVEAL_AT` on the server for filtered GETs. */
+function keeperRevealPending() {
+  const raw = (process.env.KEEPERS_REVEAL_AT || '').trim();
+  if (!raw) return false;
+  const t = Date.parse(raw);
+  return Number.isFinite(t) && Date.now() < t;
+}
+
 function normStr(v, max) {
   const s = v == null ? '' : String(v).trim();
   if (s.length > max) return null;
@@ -49,7 +57,40 @@ export default async function handler(req, res) {
         from keeper_nominations
         order by source_season desc, updated_at desc
       `;
-      return send(res, 200, { nominations: rows });
+
+      if (!keeperRevealPending()) {
+        return send(res, 200, { nominations: rows });
+      }
+
+      const session = getSessionPayload(req);
+      const sub = session && typeof session.sub === 'string' ? session.sub : null;
+
+      // Shared-password sessions (no app user id): unchanged legacy behaviour — full list.
+      if (!sub || !UUID_RE.test(sub)) {
+        return send(res, 200, { nominations: rows });
+      }
+
+      const userRows = await sql`
+        select role, sleeper_user_id, username, disabled
+        from app_users
+        where id = ${sub}
+        limit 1
+      `;
+      const account = userRows[0];
+      if (!account || account.disabled) {
+        return send(res, 200, { nominations: [] });
+      }
+      if (account.role === 'commissioner') {
+        return send(res, 200, { nominations: rows });
+      }
+
+      const allowed = effectiveSleeperUserId(account);
+      if (!allowed) {
+        return send(res, 200, { nominations: [] });
+      }
+
+      const filtered = rows.filter((r) => r.sleeper_user_id === allowed);
+      return send(res, 200, { nominations: filtered });
     }
 
     if (req.method === 'POST') {
