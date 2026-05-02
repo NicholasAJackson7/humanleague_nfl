@@ -751,9 +751,7 @@ export default function Rankings() {
             </div>
           )}
           <p className="rankings-footnote muted">
-            RD ECR = round you'd be on if consensus rank were treated as overall pick (ceil(rank ÷{' '}
-            {leagueFormat.teamCount}) — same for snake). Delta = overall startup pick minus redraft ECR (same pool scale
-            mismatch applies — use as a directional riser/faller signal). Undrafted players use a mid–round{' '}
+            Delta = overall 2025 pick minus redraft ECR (use as a directional riser/faller vs last year). Undrafted players use a mid–round{' '}
             {leagueFormat.undraftedKeeperRound} pick for Delta only.
           </p>
         </section>
