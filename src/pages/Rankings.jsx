@@ -367,8 +367,7 @@ export default function Rankings() {
             ))}
           </select>
         </label>
-
-        {isKeeperView && keeper.status === 'ready' && keeper.managerOptions?.length > 0 && (
+        {isKeeperView && keeper.managerOptions?.length > 0 && (
           <label className="rankings-control rankings-control--manager">
             <span className="rankings-control__label">Manager</span>
             <select value={managerFilter} onChange={(e) => setManagerFilter(e.target.value)}>

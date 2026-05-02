@@ -8,6 +8,7 @@ const Stats = lazy(() => import('./pages/Stats.jsx'));
 const Wheel = lazy(() => import('./pages/Wheel.jsx'));
 const Rules = lazy(() => import('./pages/Rules.jsx'));
 const Drafts = lazy(() => import('./pages/Drafts.jsx'));
+const MockDraft = lazy(() => import('./pages/MockDraft.jsx'));
 const Keepers = lazy(() => import('./pages/Keepers.jsx'));
 const Rankings = lazy(() => import('./pages/Rankings.jsx'));
 const MyTeam = lazy(() => import('./pages/MyTeam.jsx'));
@@ -74,6 +75,7 @@ export default function App() {
             <Route path="/wheel" element={<Wheel />} />
             <Route path="/rules" element={<Rules />} />
             <Route path="/drafts" element={<Drafts />} />
+            <Route path="/mock-draft" element={<MockDraft />} />
             <Route path="/keepers" element={<Keepers />} />
             <Route path="/rankings" element={<Rankings />} />
             <Route path="/me" element={<MyTeam />} />

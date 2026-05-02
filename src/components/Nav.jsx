@@ -14,6 +14,7 @@ const primaryItems = [
 const overflowItems = [
   { to: '/stats', label: 'Stats', icon: StatsIcon },
   { to: '/drafts', label: 'Draft', icon: DraftIcon },
+  { to: '/mock-draft', label: 'Mock draft', icon: DraftIcon },
   { to: '/rules', label: 'Rules', icon: RulesIcon },
 ];
 
