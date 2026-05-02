@@ -137,3 +137,39 @@ export async function loadDraftHistoryChain(currentLeagueId) {
   const chain = await resolveLeagueHistoryChain(currentLeagueId);
   return chain;
 }
+
+/**
+ * First linked season (newest-first chain) whose primary draft has at least one player pick.
+ * Skips e.g. the upcoming league before its draft runs.
+ */
+export async function findLatestSeasonWithSnakePicks(chain) {
+  if (!Array.isArray(chain) || chain.length === 0) return null;
+  for (const entry of chain) {
+    const board = await fetchSeasonDraftBoard(entry.leagueId);
+    if (board?.picks?.length) {
+      return {
+        season: entry.season,
+        leagueId: entry.leagueId,
+        name: entry.name,
+        board,
+      };
+    }
+  }
+  return null;
+}
+
+/** Sleeper pick rows → first occurrence per `player_id` of `{ round, pick_no }`. */
+export function buildDraftSlotByPlayerId(picks) {
+  const map = new Map();
+  if (!Array.isArray(picks)) return map;
+  for (const p of picks) {
+    const pid = p.player_id;
+    if (!pid) continue;
+    const key = String(pid);
+    const round = Number(p.round);
+    const pickNo = Number(p.pick_no);
+    if (!Number.isFinite(round) || !Number.isFinite(pickNo)) continue;
+    if (!map.has(key)) map.set(key, { round, pick_no: pickNo });
+  }
+  return map;
+}
