@@ -82,7 +82,7 @@ export default function Home() {
           </p>
           {showMyTeamCta && (
             <Link to="/me" className="home-hero__my-team">
-              Welcome back{welcomeTeamName ? `, ${welcomeTeamName}` : ''} — My team
+              Welcome back{welcomeTeamName ? `, ${welcomeTeamName}` : ''}
             </Link>
           )}
         </div>
