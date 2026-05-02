@@ -12,6 +12,13 @@ export const leagueFormat = {
   undraftedKeeperRound: 14,
 };
 
+/** Mock draft UI + `/mock-draft`: commissioners only in production; local dev allows session bypass (see AuthContext). */
+export function canAccessMockDraft(user, devBypass) {
+  if (user?.role === 'commissioner') return true;
+  if (import.meta.env.DEV && devBypass) return true;
+  return false;
+}
+
 export function isConfigured() {
   return Boolean(config.leagueId);
 }

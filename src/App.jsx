@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import Nav from './components/Nav.jsx';
 import { AuthProvider, useAuth } from './AuthContext.jsx';
+import { canAccessMockDraft } from './config.js';
 
 const Home = lazy(() => import('./pages/Home.jsx'));
 const Stats = lazy(() => import('./pages/Stats.jsx'));
@@ -54,6 +55,13 @@ function AppLayout() {
   );
 }
 
+function CommissionerMockDraftRoute() {
+  const { ready, user, devBypass } = useAuth();
+  if (!ready) return <PageFallback />;
+  if (!canAccessMockDraft(user, devBypass)) return <Navigate to="/" replace />;
+  return <MockDraft />;
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -75,7 +83,7 @@ export default function App() {
             <Route path="/wheel" element={<Wheel />} />
             <Route path="/rules" element={<Rules />} />
             <Route path="/drafts" element={<Drafts />} />
-            <Route path="/mock-draft" element={<MockDraft />} />
+            <Route path="/mock-draft" element={<CommissionerMockDraftRoute />} />
             <Route path="/keepers" element={<Keepers />} />
             <Route path="/rankings" element={<Rankings />} />
             <Route path="/me" element={<MyTeam />} />

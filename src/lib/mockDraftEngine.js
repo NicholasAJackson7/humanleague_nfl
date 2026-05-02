@@ -85,19 +85,22 @@ export function pickBestAvailable(rankingsPlayers, takenIds, strategy) {
   return ranked[0];
 }
 
-/**
- * Snake draft until each team reaches `targetRosterSize` (keepers count toward roster).
- *
- * @param {object} opts
- * @param {string[]} opts.slotOrderUserIds — round-1 draft slot order (length = teams)
- * @param {object[]} opts.users — Sleeper users (need user_id)
- * @param {Map<string, object>} opts.nominationByUserId
- * @param {object[]} opts.rankingsPlayers — `/api/rankings` rows with sleeper_id, ecr, owned_avg
- * @param {'ecr' | 'owned'} opts.strategy
- */
+/** Map team user id → set of board rounds where keepers consume the slot (no snake pick in that row). */
+export function keeperCostRoundBlocksFromPlacements(keeperCostByUserRound) {
+  const m = new Map();
+  if (!(keeperCostByUserRound instanceof Map)) return m;
+  for (const [uid, roundMap] of keeperCostByUserRound.entries()) {
+    if (!(roundMap instanceof Map) || roundMap.size === 0) continue;
+    m.set(uid, new Set(roundMap.keys()));
+  }
+  return m;
+}
+
 /**
  * Who picks when — same traversal order as {@link simulateSnakeDraft}.
+ * Skips `(round, user)` cells occupied by keeper cost so snake picks never overwrite keeper slots on the board.
  *
+ * @param {Map<string, Set<number>>} [keeperCostRoundsByUserId] — rounds per team where a keeper consumes that row (no pick).
  * @returns {Array<{ round: number, userId: string, slotIndex: number }>}
  */
 export function buildPickQueue(
@@ -105,6 +108,7 @@ export function buildPickQueue(
   users,
   nominationByUserId,
   targetRosterSize = leagueFormat.draftRounds,
+  keeperCostRoundsByUserId,
 ) {
   const queue = [];
   if (!slotOrderUserIds?.length || !users?.length) return queue;
@@ -120,13 +124,19 @@ export function buildPickQueue(
     for (const userId of order) {
       const left = remaining.get(userId) ?? 0;
       if (left <= 0) continue;
+      const blocked = keeperCostRoundsByUserId?.get(userId);
+      if (blocked?.has(round)) continue;
       const slotIndex = slotOrderUserIds.indexOf(userId);
       queue.push({ round, userId, slotIndex });
       remaining.set(userId, left - 1);
       totalLeft--;
       pickedThisRound = true;
     }
-    if (!pickedThisRound) break;
+    if (!pickedThisRound) {
+      if (totalLeft <= 0) break;
+      round++;
+      continue;
+    }
     round++;
   }
 
@@ -202,11 +212,18 @@ export function simulateSnakeDraft({
   rankingsPlayers,
   strategy,
   targetRosterSize = leagueFormat.draftRounds,
+  keeperCostRoundsByUserId,
 }) {
   const picks = [];
   if (!slotOrderUserIds?.length || !users?.length) return picks;
 
-  const queue = buildPickQueue(slotOrderUserIds, users, nominationByUserId, targetRosterSize);
+  const queue = buildPickQueue(
+    slotOrderUserIds,
+    users,
+    nominationByUserId,
+    targetRosterSize,
+    keeperCostRoundsByUserId,
+  );
   const taken = takenIdsFromKeeperNominations(nominationByUserId);
 
   for (const meta of queue) {

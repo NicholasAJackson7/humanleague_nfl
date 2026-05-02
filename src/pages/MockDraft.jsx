@@ -11,6 +11,7 @@ import {
   combinedTakenIds,
   pickBestAvailable,
   buildKeeperCostRoundPlacements,
+  keeperCostRoundBlocksFromPlacements,
 } from '../lib/mockDraftEngine.js';
 import { resolveLeagueHistoryChain, fetchUsers, fetchRosters, getNflPlayersLookup } from '../lib/sleeper.js';
 import './MockDraft.css';
@@ -109,12 +110,14 @@ function MockDraftBoardPanel({
   labelByUserId,
   keeperCostDraft,
   compact,
+  omitHeading = false,
 }) {
   const showCaptions = !compact;
+  const showHeading = !omitHeading;
   return (
     <div className={'mock-draft-board-wrap' + (compact ? ' mock-draft-board-wrap--compact' : '')}>
-      {!compact && <h3 className="mock-draft-board-title">Draft board</h3>}
-      {compact && <h3 className="mock-draft-board-title mock-draft-board-title--compact">Board</h3>}
+      {showHeading && !compact && <h3 className="mock-draft-board-title">Draft board</h3>}
+      {showHeading && compact && <h3 className="mock-draft-board-title mock-draft-board-title--compact">Board</h3>}
       {showCaptions && keeperCostDraft.status === 'loading' && (
         <p className="muted mock-draft-board-caption">Loading startup draft rounds for keeper costs…</p>
       )}
@@ -279,7 +282,17 @@ export default function MockDraft() {
   const [playerPos, setPlayerPos] = useState('ALL');
   const [playerSort, setPlayerSort] = useState({ key: 'ecr', dir: 'asc' });
 
+  const [liveMobileDockTab, setLiveMobileDockTab] = useState('players');
+  const [liveDesktopSidebarTab, setLiveDesktopSidebarTab] = useState('chat');
+
   const rankingsPlayers = rankings.status === 'ready' ? rankings.data.players || [] : [];
+
+  useEffect(() => {
+    if (timedDraftActive) {
+      setLiveMobileDockTab('players');
+      setLiveDesktopSidebarTab('chat');
+    }
+  }, [timedDraftActive]);
 
   useEffect(() => {
     if (!timedDraftActive) return undefined;
@@ -552,6 +565,11 @@ export default function MockDraft() {
     );
   }, [keeperCostDraft, sortedUsers, nominationByUserId]);
 
+  const keeperBlockedRoundsByUserId = useMemo(
+    () => keeperCostRoundBlocksFromPlacements(keeperCostByUserRound),
+    [keeperCostByUserRound],
+  );
+
   useEffect(() => {
     if (lockedSleeperUserId) {
       setMyTeamUserId(lockedSleeperUserId);
@@ -586,6 +604,7 @@ export default function MockDraft() {
       rankingsPlayers,
       strategy: autopickStrategy,
       targetRosterSize: leagueFormat.draftRounds,
+      keeperCostRoundsByUserId: keeperBlockedRoundsByUserId,
     });
     setDraftPicks(picks);
     setPickQueue([]);
@@ -600,6 +619,7 @@ export default function MockDraft() {
     rankings.status,
     autopickStrategy,
     timedDraftActive,
+    keeperBlockedRoundsByUserId,
   ]);
 
   const resetDraftOnly = useCallback(() => {
@@ -622,6 +642,7 @@ export default function MockDraft() {
       sortedUsers,
       nominationByUserId,
       leagueFormat.draftRounds,
+      keeperBlockedRoundsByUserId,
     );
     if (!queue.length) return;
     setDraftPicks([]);
@@ -631,7 +652,7 @@ export default function MockDraft() {
     setTimedDraftActive(true);
     setDraftPoolExhausted(false);
     setPlayerSearch('');
-  }, [slotOrderUserIds, sortedUsers, nominationByUserId, rankings.status]);
+  }, [slotOrderUserIds, sortedUsers, nominationByUserId, rankings.status, keeperBlockedRoundsByUserId]);
 
   const commitAutoPickForCursor = useCallback(
     (cursor, picksSnapshot) => {
@@ -812,6 +833,178 @@ export default function MockDraft() {
   }, [draftPicks]);
 
   const boardMaxRound = leagueFormat.draftRounds;
+
+  const myDraftedPicksLive = useMemo(() => {
+    if (!myTeamUserId) return [];
+    return [...draftPicks]
+      .filter((p) => p.userId === myTeamUserId)
+      .sort((a, b) => (a.overallPick ?? 0) - (b.overallPick ?? 0));
+  }, [draftPicks, myTeamUserId]);
+
+  function renderLiveAuxiliaryPanel(tabId) {
+    if (tabId === 'queue') {
+      return (
+        <div className="mock-draft-live-aux-panel">
+          <p className="mock-draft-live-aux-lead">
+            <strong>Queue</strong>
+          </p>
+          <p className="muted mock-draft-live-aux-copy">
+            Pick queue isn&apos;t built yet — tap or click a player in the board below to draft immediately when it&apos;s your turn.
+          </p>
+        </div>
+      );
+    }
+    if (tabId === 'roster') {
+      return (
+        <div className="mock-draft-live-aux-panel mock-draft-live-aux-panel--roster">
+          <p className="mock-draft-live-aux-lead">
+            <strong>Your roster</strong>{' '}
+            <span className="muted mock-draft-live-aux-sub">
+              ({labelByUserId.get(myTeamUserId) || 'your team'})
+            </span>
+          </p>
+          {myDraftedPicksLive.length === 0 ? (
+            <p className="muted mock-draft-live-aux-copy">No picks yet in this mock run.</p>
+          ) : (
+            <ul className="mock-draft-live-roster-list">
+              {myDraftedPicksLive.map((p) => (
+                <li key={`${p.overallPick}-${p.sleeperId}`}>
+                  <span className="tabular mock-draft-live-roster-slot">{p.overallPick}</span>
+                  <span className="mock-draft-live-roster-name">{p.name}</span>
+                  <span className="muted">{p.pos}</span>
+                  {p.pickKind === 'user' ? <span className="mock-draft-live-roster-tag">you</span> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+    }
+    if (tabId === 'chat') {
+      return (
+        <div className="mock-draft-live-aux-panel mock-draft-live-aux-panel--chat">
+          <p className="mock-draft-live-chat-welcome-title">Welcome to mock draft</p>
+          <p className="muted mock-draft-live-aux-copy">
+            CPU teams pick instantly; your picks use the timer. Keeper costs appear on the board when startup draft history is
+            loaded. Leave anytime — your finished picks stay listed on the page behind this overlay.
+          </p>
+        </div>
+      );
+    }
+    return null;
+  }
+
+  function renderLivePlayerWorkspace() {
+    if (!currentPickMeta || pickCursor >= pickQueue.length) {
+      return (
+        <p className="muted mock-draft-live-wait" aria-live="polite">
+          {pickCursor >= pickQueue.length && pickQueue.length > 0 ? 'Draft complete.' : 'Waiting…'}
+        </p>
+      );
+    }
+    if (!isMyPick) {
+      return (
+        <p className="muted mock-draft-live-wait" aria-live="polite">
+          <strong>{labelByUserId.get(currentPickMeta.userId)}</strong> is picking instantly…
+        </p>
+      );
+    }
+    if (rankings.status !== 'ready') {
+      return <p className="muted">Loading rankings…</p>;
+    }
+    return (
+      <>
+        <p className="mock-draft-live-pick-hint">
+          Click a row to draft that player. When time runs out, autopick uses your strategy (
+          {autopickStrategy === 'owned' ? 'chalk' : 'ECR'}).
+        </p>
+        <div className="mock-draft-picker__filters mock-draft-live-filters">
+          <label className="mock-draft-picker__search">
+            <span className="visually-hidden">Search players</span>
+            <input
+              type="search"
+              value={playerSearch}
+              onChange={(e) => setPlayerSearch(e.target.value)}
+              placeholder="Find player…"
+              autoComplete="off"
+            />
+          </label>
+          <div className="mock-draft-picker__pills" role="tablist">
+            {POSITION_FILTERS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                role="tab"
+                aria-selected={playerPos === p}
+                className={'mock-draft-picker__pill' + (playerPos === p ? ' mock-draft-picker__pill--active' : '')}
+                onClick={() => setPlayerPos(p)}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mock-draft-live-table-scroll">
+          <table className="mock-draft-live-table">
+            <thead>
+              <tr>
+                <th scope="col" className="mock-draft-live-table__ecr">
+                  <button type="button" className="mock-draft-sort-th" onClick={() => togglePlayerSort('ecr')}>
+                    {sortHeaderLabel('ecr', 'ECR')}
+                  </button>
+                </th>
+                <th scope="col">
+                  <button type="button" className="mock-draft-sort-th" onClick={() => togglePlayerSort('name')}>
+                    {sortHeaderLabel('name', 'Player')}
+                  </button>
+                </th>
+                <th scope="col" className="mock-draft-live-table__pos">
+                  Pos
+                </th>
+                <th scope="col">
+                  <button type="button" className="mock-draft-sort-th" onClick={() => togglePlayerSort('team')}>
+                    {sortHeaderLabel('team', 'NFL')}
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedPoolTableRows.map((p) => (
+                <tr
+                  key={String(p.sleeper_id)}
+                  className="mock-draft-live-table__row"
+                  onClick={() => onManualDraftPlayer(p)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onManualDraftPlayer(p);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                >
+                  <td className="tabular mock-draft-live-table__ecr">{p.ecr ?? '—'}</td>
+                  <td>{p.name}</td>
+                  <td className="muted mock-draft-live-table__pos">{p.pos ?? '—'}</td>
+                  <td className="muted">{p.team ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="muted mock-draft-live-table-footer">
+          {sortedPoolAll.length === 0
+            ? 'No players match filters — loosen search or choose ALL positions.'
+            : sortedPoolAll.length > LIVE_TABLE_ROW_CAP
+              ? `Showing first ${sortedPoolTableRows.length} of ${sortedPoolAll.length} matching (refine filters to narrow).`
+              : `${sortedPoolTableRows.length} available.`}{' '}
+          Sort columns by tapping headers.
+        </p>
+      </>
+    );
+  }
+
+  const leagueLiveSubtitle = `${slotOrderUserIds?.length ?? 0}-team snake · ${pickSeconds}s · ${boardMaxRound} rds`;
 
   return (
     <div className="page mock-draft-page">
@@ -1174,49 +1367,55 @@ export default function MockDraft() {
           aria-labelledby="mock-draft-live-title"
         >
           <div className="mock-draft-live-overlay__inner">
-            <header className="mock-draft-live-overlay__top">
-              <div>
-                <h2 id="mock-draft-live-title" className="mock-draft-live-overlay__title">
-                  Draft room
+            <header className="mock-draft-live-bar">
+              <button
+                type="button"
+                className="mock-draft-live-bar__back"
+                onClick={leaveDraftRoom}
+                aria-label="Leave draft room"
+              >
+                ← Back
+              </button>
+              <div className="mock-draft-live-bar__center">
+                <h2 id="mock-draft-live-title" className="mock-draft-live-bar__title">
+                  Mock draft room
                 </h2>
-                <p className="muted mock-draft-live-overlay__sub">
+                <p className="mock-draft-live-bar__meta muted">
                   {currentPickMeta && pickCursor < pickQueue.length ? (
                     <>
-                      Pick <strong>{pickCursor + 1}</strong> of <strong>{pickQueue.length}</strong> · Round{' '}
-                      <strong>{currentPickMeta.round}</strong>
-                      {' · '}
-                      On the clock: <strong>{labelByUserId.get(currentPickMeta.userId)}</strong>
-                      {isMyPick ? <span className="mock-draft-live-overlay__you"> — You</span> : null}
+                      Pick <strong>{pickCursor + 1}</strong>/<strong>{pickQueue.length}</strong> · Rd{' '}
+                      <strong>{currentPickMeta.round}</strong> · <strong>{labelByUserId.get(currentPickMeta.userId)}</strong>
+                      {isMyPick ? <span className="mock-draft-live-bar__you"> · You</span> : null}
                     </>
                   ) : (
-                    <>Draft wrapping up…</>
+                    <>Wrapping up…</>
                   )}
+                  <span className="mock-draft-live-bar__sep"> · </span>
+                  <span>{leagueLiveSubtitle}</span>
                 </p>
               </div>
-              <div className="mock-draft-live-overlay__top-actions">
+              <div className="mock-draft-live-bar__right">
                 {rankings.status === 'ready' &&
                   currentPickMeta &&
                   pickCursor < pickQueue.length &&
                   isMyPick && (
                     <div
                       className={
-                        'mock-draft-live-overlay__timer' +
-                        (secondsLeft <= 10 ? ' mock-draft-live-overlay__timer--warn' : '')
+                        'mock-draft-live-bar__timer' +
+                        (secondsLeft <= 10 ? ' mock-draft-live-bar__timer--warn' : '')
                       }
                       aria-live="polite"
                     >
                       {fmtClock(secondsLeft)}
                     </div>
                   )}
-                <button type="button" className="btn btn-secondary" onClick={leaveDraftRoom}>
-                  Leave draft room
-                </button>
               </div>
             </header>
 
-            <div className="mock-draft-live-split">
+            <div className="mock-draft-live-board-shell">
               <MockDraftBoardPanel
                 compact
+                omitHeading
                 slotOrderUserIds={slotOrderUserIds}
                 boardMaxRound={boardMaxRound}
                 draftPicks={draftPicks}
@@ -1229,110 +1428,72 @@ export default function MockDraft() {
                 labelByUserId={labelByUserId}
                 keeperCostDraft={keeperCostDraft}
               />
-              <section className="mock-draft-live-players" aria-label="Available players">
-                {!currentPickMeta || pickCursor >= pickQueue.length ? (
-                  <p className="muted mock-draft-live-wait" aria-live="polite">
-                    {pickCursor >= pickQueue.length && pickQueue.length > 0 ? 'Draft complete.' : 'Waiting…'}
-                  </p>
-                ) : !isMyPick ? (
-                  <p className="muted mock-draft-live-wait" aria-live="polite">
-                    <strong>{labelByUserId.get(currentPickMeta.userId)}</strong> is picking instantly…
-                  </p>
-                ) : rankings.status !== 'ready' ? (
-                  <p className="muted">Loading rankings…</p>
-                ) : (
-                  <>
-                    <p className="mock-draft-live-pick-hint">
-                      Click a row to draft that player. When time runs out, autopick uses your strategy (
-                      {autopickStrategy === 'owned' ? 'chalk' : 'ECR'}).
-                    </p>
-                    <div className="mock-draft-picker__filters mock-draft-live-filters">
-                      <label className="mock-draft-picker__search">
-                        <span className="visually-hidden">Search players</span>
-                        <input
-                          type="search"
-                          value={playerSearch}
-                          onChange={(e) => setPlayerSearch(e.target.value)}
-                          placeholder="Search name or NFL team…"
-                          autoComplete="off"
-                        />
-                      </label>
-                      <div className="mock-draft-picker__pills" role="tablist">
-                        {POSITION_FILTERS.map((p) => (
-                          <button
-                            key={p}
-                            type="button"
-                            role="tab"
-                            aria-selected={playerPos === p}
-                            className={
-                              'mock-draft-picker__pill' + (playerPos === p ? ' mock-draft-picker__pill--active' : '')
-                            }
-                            onClick={() => setPlayerPos(p)}
-                          >
-                            {p}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="mock-draft-live-table-scroll">
-                      <table className="mock-draft-live-table">
-                        <thead>
-                          <tr>
-                            <th scope="col" className="mock-draft-live-table__ecr">
-                              <button type="button" className="mock-draft-sort-th" onClick={() => togglePlayerSort('ecr')}>
-                                {sortHeaderLabel('ecr', 'ECR')}
-                              </button>
-                            </th>
-                            <th scope="col">
-                              <button type="button" className="mock-draft-sort-th" onClick={() => togglePlayerSort('name')}>
-                                {sortHeaderLabel('name', 'Player')}
-                              </button>
-                            </th>
-                            <th scope="col" className="mock-draft-live-table__pos">
-                              Pos
-                            </th>
-                            <th scope="col">
-                              <button type="button" className="mock-draft-sort-th" onClick={() => togglePlayerSort('team')}>
-                                {sortHeaderLabel('team', 'NFL')}
-                              </button>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sortedPoolTableRows.map((p) => (
-                            <tr
-                              key={String(p.sleeper_id)}
-                              className="mock-draft-live-table__row"
-                              onClick={() => onManualDraftPlayer(p)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
-                                  onManualDraftPlayer(p);
-                                }
-                              }}
-                              tabIndex={0}
-                              role="button"
-                            >
-                              <td className="tabular mock-draft-live-table__ecr">{p.ecr ?? '—'}</td>
-                              <td>{p.name}</td>
-                              <td className="muted mock-draft-live-table__pos">{p.pos ?? '—'}</td>
-                              <td className="muted">{p.team ?? '—'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <p className="muted mock-draft-live-table-footer">
-                      {sortedPoolAll.length === 0
-                        ? 'No players match filters — loosen search or choose ALL positions.'
-                        : sortedPoolAll.length > LIVE_TABLE_ROW_CAP
-                          ? `Showing first ${sortedPoolTableRows.length} of ${sortedPoolAll.length} matching (refine filters to narrow).`
-                          : `${sortedPoolTableRows.length} available.`}{' '}
-                      Sort columns by tapping headers.
-                    </p>
-                  </>
+            </div>
+
+            <div className="mock-draft-live-workspace">
+              <div className="mock-draft-live-mobile-dock" role="tablist" aria-label="Draft panels">
+                {[
+                  ['players', 'Players'],
+                  ['queue', 'Queue'],
+                  ['roster', 'Roster'],
+                  ['chat', 'Chat'],
+                ].map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={liveMobileDockTab === id}
+                    className={
+                      'mock-draft-live-dock-tab' +
+                      (liveMobileDockTab === id ? ' mock-draft-live-dock-tab--active' : '')
+                    }
+                    onClick={() => setLiveMobileDockTab(id)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mock-draft-live-workspace-grid">
+                <section
+                  className={
+                    'mock-draft-live-players-col' +
+                    (liveMobileDockTab !== 'players' ? ' mock-draft-live-players-col--hide-sm' : '')
+                  }
+                  aria-label="Available players"
+                >
+                  <div className="mock-draft-live-players-inner">{renderLivePlayerWorkspace()}</div>
+                </section>
+
+                <aside className="mock-draft-live-sidebar" aria-label="Queue, roster, and chat">
+                  <div className="mock-draft-live-sidebar-tabs" role="tablist">
+                    {[
+                      ['queue', 'Queue'],
+                      ['roster', 'Roster'],
+                      ['chat', 'Chat'],
+                    ].map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        role="tab"
+                        aria-selected={liveDesktopSidebarTab === id}
+                        className={
+                          'mock-draft-live-tab' +
+                          (liveDesktopSidebarTab === id ? ' mock-draft-live-tab--active' : '')
+                        }
+                        onClick={() => setLiveDesktopSidebarTab(id)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mock-draft-live-sidebar-body">{renderLiveAuxiliaryPanel(liveDesktopSidebarTab)}</div>
+                </aside>
+
+                {liveMobileDockTab !== 'players' && (
+                  <div className="mock-draft-live-mobile-aux">{renderLiveAuxiliaryPanel(liveMobileDockTab)}</div>
                 )}
-              </section>
+              </div>
             </div>
           </div>
         </div>

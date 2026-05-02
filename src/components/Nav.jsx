@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext.jsx';
+import { canAccessMockDraft } from '../config.js';
 import BottomSheet from './BottomSheet.jsx';
 import './Nav.css';
 
@@ -14,20 +15,27 @@ const primaryItems = [
 const overflowItems = [
   { to: '/stats', label: 'Stats', icon: StatsIcon },
   { to: '/drafts', label: 'Draft', icon: DraftIcon },
-  { to: '/mock-draft', label: 'Mock draft', icon: DraftIcon },
+  { to: '/mock-draft', label: 'Mock draft', icon: DraftIcon, commissionerOnly: true },
   { to: '/rules', label: 'Rules', icon: RulesIcon },
 ];
 
-const OVERFLOW_PATHS = new Set(overflowItems.map((i) => i.to));
-
 export default function Nav() {
-  const { authEnabled, authenticated, devBypass, refresh } = useAuth();
+  const { authEnabled, authenticated, devBypass, refresh, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
   const showLogout = authEnabled && authenticated && !devBypass;
 
-  const moreActive = useMemo(() => OVERFLOW_PATHS.has(location.pathname), [location.pathname]);
+  const overflowVisible = useMemo(() => {
+    return overflowItems.filter((item) => {
+      if (!item.commissionerOnly) return true;
+      return canAccessMockDraft(user, devBypass);
+    });
+  }, [user, devBypass]);
+
+  const overflowPaths = useMemo(() => new Set(overflowVisible.map((i) => i.to)), [overflowVisible]);
+
+  const moreActive = useMemo(() => overflowPaths.has(location.pathname), [location.pathname, overflowPaths]);
 
   async function onLogout() {
     try {
@@ -84,7 +92,7 @@ export default function Nav() {
       >
         <div id="nav-more-sheet">
           <ul className="nav-more-list">
-            {overflowItems.map(({ to, label, icon: Icon }) => (
+            {overflowVisible.map(({ to, label, icon: Icon }) => (
               <li key={to}>
                 <NavLink
                   to={to}
