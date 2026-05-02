@@ -7,12 +7,12 @@ import './Nav.css';
 const primaryItems = [
   { to: '/', label: 'Home', icon: HomeIcon, end: true },
   { to: '/me', label: 'My team', icon: MyTeamIcon },
-  { to: '/stats', label: 'Stats', icon: StatsIcon },
+  { to: '/rankings', label: 'Rankings', icon: RankingsIcon },
   { to: '/keepers', label: 'Keepers', icon: KeeperIcon },
 ];
 
 const overflowItems = [
-  { to: '/rankings', label: 'Rankings', icon: RankingsIcon },
+  { to: '/stats', label: 'Stats', icon: StatsIcon },
   { to: '/drafts', label: 'Draft', icon: DraftIcon },
   { to: '/rules', label: 'Rules', icon: RulesIcon },
 ];
