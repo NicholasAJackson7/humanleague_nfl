@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { config } from '../config.js';
+import { config, leagueFormat } from '../config.js';
 import { useAuth } from '../AuthContext.jsx';
+import BottomSheet from '../components/BottomSheet.jsx';
 import {
   resolveLeagueHistoryChain,
   fetchSeasonBundle,
@@ -9,6 +10,7 @@ import {
   rosterPlayerIds,
 } from '../lib/sleeper.js';
 import { computeStats, getRegularSeasonMatchupPairs } from '../lib/stats.js';
+import { loadKeeperRankingsContext } from '../lib/loadKeeperRankingsContext.js';
 import './MyTeam.css';
 
 function fmtNominationRow(n, lookup) {
@@ -66,6 +68,190 @@ function computeWinLossStreak(bundle, rosterId) {
   return `${wins ? 'W' : 'L'}${n}`;
 }
 
+function fmtRankingsNum(n, digits = 1) {
+  if (n == null || !Number.isFinite(n)) return '—';
+  return Number(n).toFixed(digits);
+}
+
+function formatRankingsDate(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function PlayerRankingsSheet({
+  open,
+  onClose,
+  focusPlayerId,
+  lookup,
+  ecrRankings,
+  keeperCtx,
+  ecrPlayer,
+  keeperRow,
+}) {
+  const meta = focusPlayerId ? lookup?.get(String(focusPlayerId)) : null;
+  const titleName = meta?.name || (focusPlayerId ? String(focusPlayerId) : 'Player');
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title={titleName}>
+      <div className="my-team-rankings-sheet">
+        {ecrRankings.status === 'loading' || ecrRankings.status === 'idle' ? (
+          <p className="muted my-team-rankings-sheet__status">Loading expert rankings…</p>
+        ) : null}
+        {ecrRankings.status === 'error' && (
+          <p className="muted my-team-rankings-sheet__status" role="alert">
+            Could not load rankings: {ecrRankings.message}
+          </p>
+        )}
+
+        {ecrRankings.status === 'ready' && !ecrPlayer && (
+          <p className="muted my-team-rankings-sheet__status">
+            No expert consensus row for this player (missing FantasyPros ↔ Sleeper id mapping in the public
+            dataset).
+          </p>
+        )}
+
+        {ecrRankings.status === 'ready' && ecrPlayer && (
+          <section className="my-team-rankings-block">
+            <h3 className="my-team-rankings-block__title">Expert consensus (redraft)</h3>
+            {ecrRankings.data?.scrape_date && (
+              <p className="muted my-team-rankings-block__meta">
+                As of <strong>{formatRankingsDate(ecrRankings.data.scrape_date)}</strong>
+              </p>
+            )}
+            <dl className="my-team-rankings-dl">
+              <div>
+                <dt>ECR rank</dt>
+                <dd>{ecrPlayer.ecr ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>Pos</dt>
+                <dd>
+                  <span className={`my-team-pos my-team-pos--${(ecrPlayer.pos || '').toLowerCase()}`}>
+                    {ecrPlayer.pos || '—'}
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt>NFL team</dt>
+                <dd>{ecrPlayer.team || '—'}</dd>
+              </div>
+              <div>
+                <dt>Bye</dt>
+                <dd>{ecrPlayer.bye ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>SD</dt>
+                <dd title="Standard deviation across experts">{fmtRankingsNum(ecrPlayer.sd, 1)}</dd>
+              </div>
+              <div>
+                <dt>Best / worst</dt>
+                <dd>
+                  {ecrPlayer.best != null && ecrPlayer.worst != null
+                    ? `${ecrPlayer.best} / ${ecrPlayer.worst}`
+                    : '—'}
+                </dd>
+              </div>
+              <div>
+                <dt>Owned</dt>
+                <dd>
+                  {ecrPlayer.owned_avg != null ? `${Math.round(ecrPlayer.owned_avg)}%` : '—'}
+                </dd>
+              </div>
+            </dl>
+          </section>
+        )}
+
+        <section className="my-team-rankings-block">
+          <h3 className="my-team-rankings-block__title">Keeper: draft vs consensus</h3>
+          {ecrRankings.status === 'error' ? (
+            <p className="muted my-team-rankings-sheet__status">
+              Keeper comparison needs expert rankings data loaded above.
+            </p>
+          ) : keeperCtx.status === 'idle' || keeperCtx.status === 'loading' ? (
+            <p className="muted my-team-rankings-sheet__status">Loading keeper comparison…</p>
+          ) : keeperCtx.status === 'no-league' ? (
+            <p className="muted my-team-rankings-sheet__status">
+              Set <code className="my-team-rankings-code">VITE_SLEEPER_LEAGUE_ID</code> to enable this section.
+            </p>
+          ) : keeperCtx.status === 'no-draft' ? (
+            <p className="muted my-team-rankings-sheet__status">{keeperCtx.message}</p>
+          ) : keeperCtx.status === 'error' ? (
+            <p className="muted my-team-rankings-sheet__status" role="alert">
+              {keeperCtx.message}
+            </p>
+          ) : keeperCtx.status === 'ready' ? (
+            <>
+              <p className="muted my-team-rankings-block__meta">
+                <strong>{keeperCtx.season}</strong>
+                {keeperCtx.leagueName ? ` · ${keeperCtx.leagueName}` : ''}
+                {keeperCtx.draftLabel ? ` · Draft: ${keeperCtx.draftLabel}` : ''}
+              </p>
+              {!keeperRow ? (
+                <p className="muted my-team-rankings-sheet__status">
+                  This player isn’t on a roster in that league season’s keeper comparison (same scope as the
+                  Rankings → keeper view).
+                </p>
+              ) : (
+                <dl className="my-team-rankings-dl">
+                  <div>
+                    <dt>Pick ({keeperCtx.season})</dt>
+                    <dd>{keeperRow.draft_pick_overall != null ? keeperRow.draft_pick_overall : '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>RD cost</dt>
+                    <dd>{keeperRow.round_lost ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>RD ECR</dt>
+                    <dd>
+                      {keeperRow.ecr_implied_round != null
+                        ? keeperRow.ecr_implied_round
+                        : '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>ECR</dt>
+                    <dd>{keeperRow.ecr ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Delta</dt>
+                    <dd
+                      className={
+                        keeperRow.keeper_delta != null && keeperRow.keeper_delta > 0
+                          ? 'my-team-rankings-dl__delta-pos'
+                          : undefined
+                      }
+                    >
+                      {keeperRow.keeper_delta != null ? fmtRankingsNum(keeperRow.keeper_delta, 1) : '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Manager</dt>
+                    <dd>{keeperRow.manager_label || '—'}</dd>
+                  </div>
+                </dl>
+              )}
+              <p className="muted my-team-rankings-footnote">
+                RD ECR = round implied by consensus rank (ceil(rank ÷ {leagueFormat.teamCount})). Delta =
+                startup overall pick minus ECR; undrafted players use a mid–round {leagueFormat.undraftedKeeperRound}{' '}
+                proxy — same as the Rankings page footnote.
+              </p>
+            </>
+          ) : null}
+        </section>
+
+        <p className="muted my-team-rankings-sheet__hint">
+          <Link to="/rankings" onClick={onClose}>
+            Open full Rankings page →
+          </Link>
+        </p>
+      </div>
+    </BottomSheet>
+  );
+}
+
 function nextRegularOpponent(bundle, rosterId, playedWeeksDesc) {
   const lastRegularWeek = bundle.lastRegularWeek || 14;
   const lastPlayed = playedWeeksDesc[0];
@@ -96,7 +282,7 @@ async function loadSeasonForOwner(chain, ownerId) {
   return null;
 }
 
-function RosterTable({ roster, lookup }) {
+function RosterTable({ roster, lookup, onViewRankings }) {
   const starters = Array.isArray(roster.starters) ? roster.starters.map(String).filter(Boolean) : [];
   const starterSet = new Set(starters);
   const reserve = new Set((roster.reserve || []).map(String));
@@ -129,7 +315,20 @@ function RosterTable({ roster, lookup }) {
     const tm = meta?.team || '—';
     return (
       <tr>
-        <td>{name}</td>
+        <td>
+          {onViewRankings ? (
+            <button
+              type="button"
+              className="my-team-roster__player-hit"
+              onClick={() => onViewRankings(id)}
+              aria-label={`Rankings and keeper value for ${name}`}
+            >
+              {name}
+            </button>
+          ) : (
+            name
+          )}
+        </td>
         <td>{pos}</td>
         <td>{tm}</td>
       </tr>
@@ -196,6 +395,9 @@ export default function MyTeam() {
   const [lookup, setLookup] = useState(null);
   const [state, setState] = useState({ status: 'idle' });
   const [nominations, setNominations] = useState([]);
+  const [rankingsFocusId, setRankingsFocusId] = useState(null);
+  const [ecrRankings, setEcrRankings] = useState({ status: 'idle' });
+  const [keeperCtx, setKeeperCtx] = useState({ status: 'idle' });
 
   useEffect(() => {
     let cancelled = false;
@@ -206,6 +408,83 @@ export default function MyTeam() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!ready || !authenticated || devBypass) {
+      setEcrRankings({ status: 'idle' });
+      return;
+    }
+    setEcrRankings({ status: 'loading' });
+    fetch('/api/rankings?page_type=redraft-overall', { credentials: 'include' })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+        return data;
+      })
+      .then((data) => {
+        if (!cancelled) setEcrRankings({ status: 'ready', data });
+      })
+      .catch((err) => {
+        if (!cancelled)
+          setEcrRankings({ status: 'error', message: err.message || String(err) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, authenticated, devBypass]);
+
+  const ecrReadyData = ecrRankings.status === 'ready' ? ecrRankings.data : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!ready || !authenticated || devBypass) {
+      setKeeperCtx({ status: 'idle' });
+      return;
+    }
+    if (ecrRankings.status === 'error') {
+      setKeeperCtx({ status: 'idle' });
+      return;
+    }
+    if (!ecrReadyData?.players?.length) {
+      setKeeperCtx({ status: 'idle' });
+      return;
+    }
+    setKeeperCtx({ status: 'loading' });
+    loadKeeperRankingsContext(ecrReadyData.players)
+      .then((k) => {
+        if (!cancelled) setKeeperCtx(k);
+      })
+      .catch((e) => {
+        if (!cancelled) setKeeperCtx({ status: 'error', message: e.message || String(e) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, authenticated, devBypass, ecrRankings.status, ecrReadyData]);
+
+  const ecrBySleeper = useMemo(() => {
+    if (ecrRankings.status !== 'ready') return null;
+    const m = new Map();
+    for (const p of ecrRankings.data.players) {
+      if (p.sleeper_id) m.set(String(p.sleeper_id), p);
+    }
+    return m;
+  }, [ecrRankings]);
+
+  const keeperBySleeper = useMemo(() => {
+    if (keeperCtx.status !== 'ready') return null;
+    const m = new Map();
+    for (const r of keeperCtx.rows) {
+      if (r.sleeper_id) m.set(String(r.sleeper_id), r);
+    }
+    return m;
+  }, [keeperCtx]);
+
+  const focusEcrPlayer =
+    rankingsFocusId != null && ecrBySleeper ? ecrBySleeper.get(String(rankingsFocusId)) : null;
+  const focusKeeperRow =
+    rankingsFocusId != null && keeperBySleeper ? keeperBySleeper.get(String(rankingsFocusId)) : null;
 
   const load = useCallback(async () => {
     if (!config.leagueId) {
@@ -492,8 +771,20 @@ export default function MyTeam() {
 
       <section className="card my-team-roster-card">
         <h2>Roster</h2>
-        <RosterTable roster={roster} lookup={lookup} />
+        <p className="muted my-team-roster-hint">Tap a player name for expert / keeper stats (same data as Rankings).</p>
+        <RosterTable roster={roster} lookup={lookup} onViewRankings={(id) => setRankingsFocusId(id)} />
       </section>
+
+      <PlayerRankingsSheet
+        open={rankingsFocusId != null}
+        onClose={() => setRankingsFocusId(null)}
+        focusPlayerId={rankingsFocusId}
+        lookup={lookup}
+        ecrRankings={ecrRankings}
+        keeperCtx={keeperCtx}
+        ecrPlayer={focusEcrPlayer}
+        keeperRow={focusKeeperRow}
+      />
 
       <section className="card my-team-keepers-card">
         <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Keeper nominations</h2>
