@@ -1,13 +1,45 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { config } from '../config.js';
-import { fetchLeague } from '../lib/sleeper.js';
+import { useAuth } from '../AuthContext.jsx';
+import { fetchLeague, fetchUsers } from '../lib/sleeper.js';
 import { fetchHallOfFame } from '../lib/hallOfFame.js';
 import './Home.css';
 
 export default function Home() {
+  const { ready, authenticated, authEnabled, user, devBypass } = useAuth();
+  const [welcomeTeamName, setWelcomeTeamName] = useState(null);
   const [league, setLeague] = useState(null);
   const [hof, setHof] = useState({ status: 'idle' });
+
+  const showMyTeamCta =
+    ready &&
+    Boolean(config.leagueId) &&
+    authEnabled &&
+    authenticated &&
+    !devBypass &&
+    typeof user?.sleeperUserId === 'string' &&
+    user.sleeperUserId.length > 0;
+
+  useEffect(() => {
+    if (!showMyTeamCta || !config.leagueId) {
+      setWelcomeTeamName(null);
+      return;
+    }
+    let cancelled = false;
+    fetchUsers(config.leagueId)
+      .then((users) => {
+        const u = Array.isArray(users) ? users.find((x) => x.user_id === user.sleeperUserId) : null;
+        const label = u?.metadata?.team_name || u?.display_name || null;
+        if (!cancelled) setWelcomeTeamName(label);
+      })
+      .catch(() => {
+        if (!cancelled) setWelcomeTeamName(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showMyTeamCta, user?.sleeperUserId]);
 
   useEffect(() => {
     if (!config.leagueId) return;
@@ -48,6 +80,11 @@ export default function Home() {
             The 2026 season is approaching, time to pick your keepers for next
             season and discuss rule changes.
           </p>
+          {showMyTeamCta && (
+            <Link to="/me" className="home-hero__my-team">
+              Welcome back{welcomeTeamName ? `, ${welcomeTeamName}` : ''} — My team
+            </Link>
+          )}
         </div>
       </section>
 

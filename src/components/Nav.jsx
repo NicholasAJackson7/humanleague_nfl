@@ -1,21 +1,32 @@
-import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext.jsx';
+import BottomSheet from './BottomSheet.jsx';
 import './Nav.css';
 
-const items = [
+const primaryItems = [
   { to: '/', label: 'Home', icon: HomeIcon, end: true },
-  { to: '/stats', label: 'Stats', icon: StatsIcon },
-  { to: '/rankings', label: 'Ranks', icon: RankingsIcon },
-  { to: '/drafts', label: 'Draft', icon: DraftIcon },
+  { to: '/me', label: 'My team', icon: MyTeamIcon },
+  { to: '/rankings', label: 'Rankings', icon: RankingsIcon },
   { to: '/keepers', label: 'Keepers', icon: KeeperIcon },
+];
+
+const overflowItems = [
+  { to: '/stats', label: 'Stats', icon: StatsIcon },
+  { to: '/drafts', label: 'Draft', icon: DraftIcon },
   { to: '/rules', label: 'Rules', icon: RulesIcon },
 ];
+
+const OVERFLOW_PATHS = new Set(overflowItems.map((i) => i.to));
 
 export default function Nav() {
   const { authEnabled, authenticated, devBypass, refresh } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [moreOpen, setMoreOpen] = useState(false);
   const showLogout = authEnabled && authenticated && !devBypass;
+
+  const moreActive = useMemo(() => OVERFLOW_PATHS.has(location.pathname), [location.pathname]);
 
   async function onLogout() {
     try {
@@ -29,7 +40,7 @@ export default function Nav() {
   return (
     <nav className={'bottom-nav' + (showLogout ? ' bottom-nav--auth' : '')} aria-label="Primary">
       <ul>
-        {items.map(({ to, label, icon: Icon, end }) => (
+        {primaryItems.map(({ to, label, icon: Icon, end }) => (
           <li key={to}>
             <NavLink
               to={to}
@@ -41,6 +52,20 @@ export default function Nav() {
             </NavLink>
           </li>
         ))}
+        <li>
+          <button
+            type="button"
+            className={'tab tab-more' + (moreActive ? ' active' : '')}
+            aria-expanded={moreOpen}
+            aria-haspopup="dialog"
+            aria-controls="nav-more-sheet"
+            aria-label="More navigation"
+            onClick={() => setMoreOpen(true)}
+          >
+            <MoreIcon />
+            <span>More</span>
+          </button>
+        </li>
         {showLogout && (
           <li>
             <button type="button" className="tab tab-logout" onClick={onLogout}>
@@ -50,6 +75,29 @@ export default function Nav() {
           </li>
         )}
       </ul>
+
+      <BottomSheet
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        title="More"
+      >
+        <div id="nav-more-sheet">
+          <ul className="nav-more-list">
+            {overflowItems.map(({ to, label, icon: Icon }) => (
+              <li key={to}>
+                <NavLink
+                  to={to}
+                  className={({ isActive }) => 'nav-more-link' + (isActive ? ' nav-more-link--active' : '')}
+                  onClick={() => setMoreOpen(false)}
+                >
+                  <Icon />
+                  <span>{label}</span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </BottomSheet>
     </nav>
   );
 }
@@ -60,6 +108,25 @@ function LogoutIcon() {
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <polyline points="16 17 21 12 16 7" />
       <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="19" cy="12" r="2" />
+    </svg>
+  );
+}
+
+function MyTeamIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M6 20v-1a6 6 0 0 1 12 0v1" />
     </svg>
   );
 }
