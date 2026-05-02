@@ -113,24 +113,6 @@
   border-top: none;
 }
 
-.my-team-roster__flag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.my-team-roster__starter-pill {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 2px 7px;
-  border-radius: var(--radius-pill);
-  background: rgba(56, 189, 248, 0.14);
-  color: var(--color-accent);
-}
-
 .my-team-roster__sec-title td {
   padding-top: 14px;
   padding-bottom: 6px;

@@ -122,19 +122,14 @@ function RosterTable({ roster, lookup }) {
     return { benchIds, irIds };
   }, [allIds, starterSet, reserve, lookup]);
 
-  function Row({ id, showStarter }) {
+  function Row({ id }) {
     const meta = lookup?.get(id);
     const name = meta?.name || id;
     const pos = meta?.position || '—';
     const tm = meta?.team || '—';
     return (
-      <tr key={id}>
-        <td>
-          <span className="my-team-roster__flag">
-            {showStarter && <span className="my-team-roster__starter-pill">Starter</span>}
-            <span>{name}</span>
-          </span>
-        </td>
+      <tr>
+        <td>{name}</td>
         <td>{pos}</td>
         <td>{tm}</td>
       </tr>
@@ -160,7 +155,7 @@ function RosterTable({ roster, lookup }) {
                 </td>
               </tr>
               {starters.map((id) => (
-                <Row key={`s-${id}`} id={id} showStarter />
+                <Row key={`s-${id}`} id={id} />
               ))}
             </>
           )}
@@ -170,7 +165,7 @@ function RosterTable({ roster, lookup }) {
                 <td colSpan={3}>Bench ({rowIdsBenchIr.benchIds.length})</td>
               </tr>
               {rowIdsBenchIr.benchIds.map((id) => (
-                <Row key={`b-${id}`} id={id} showStarter={false} />
+                <Row key={`b-${id}`} id={id} />
               ))}
             </>
           )}
@@ -180,7 +175,7 @@ function RosterTable({ roster, lookup }) {
                 <td colSpan={3}>IR / reserve ({rowIdsBenchIr.irIds.length})</td>
               </tr>
               {rowIdsBenchIr.irIds.map((id) => (
-                <Row key={`r-${id}`} id={id} showStarter={false} />
+                <Row key={`r-${id}`} id={id} />
               ))}
             </>
           )}
