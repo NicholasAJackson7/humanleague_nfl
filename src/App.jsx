@@ -10,6 +10,7 @@ const Rules = lazy(() => import('./pages/Rules.jsx'));
 const Drafts = lazy(() => import('./pages/Drafts.jsx'));
 const Keepers = lazy(() => import('./pages/Keepers.jsx'));
 const Rankings = lazy(() => import('./pages/Rankings.jsx'));
+const MyTeam = lazy(() => import('./pages/MyTeam.jsx'));
 const Login = lazy(() => import('./pages/Login.jsx'));
 
 function PageFallback() {
@@ -75,6 +76,7 @@ export default function App() {
             <Route path="/drafts" element={<Drafts />} />
             <Route path="/keepers" element={<Keepers />} />
             <Route path="/rankings" element={<Rankings />} />
+            <Route path="/me" element={<MyTeam />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Route>

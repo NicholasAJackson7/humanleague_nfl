@@ -75,6 +75,7 @@ export function getNflPlayersLookup() {
         map.set(id, {
           name,
           position: p.position || '',
+          team: p.team ? String(p.team) : '',
         });
       }
       return map;
