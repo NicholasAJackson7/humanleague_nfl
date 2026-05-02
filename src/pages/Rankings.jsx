@@ -351,7 +351,7 @@ export default function Rankings() {
           <p className="rankings-keeper-rules muted">
             Keeper cost: lose the pick in the round they were drafted (
             {leagueFormat.teamCount} teams, {leagueFormat.draftRounds} rounds). Undrafted roster adds =
-            round {leagueFormat.undraftedKeeperRound}. Showing{' '}. ECR = Expert Consensus Rank
+            round {leagueFormat.undraftedKeeperRound}. ECR = Expert Consensus Rank. Delta = overall 2025 pick minus redraft ECR
             <strong>
               {keeper.season}
               {keeper.leagueName ? ` · ${keeper.leagueName}` : ''}
